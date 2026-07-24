@@ -1,0 +1,28 @@
+  Tenancy & auth
+  - Organization, User (email globally unique), Membership (user↔org, role: owner/manager/staff, status: active/removed)
+  - Invite (org, email, role, hashed token, expires_at, status) — owner/manager creates it, invitee accepts via tokenized link (sets password if new, logs in if
+  existing), which then creates the Membership
+  - Email sending goes through an EmailSender interface; stub implementation logs the invite link now, swappable for a real provider later without touching calling
+  code
+  - JWT access+refresh auth
+
+  Domain
+  - Product, ChecklistTemplate/ChecklistItem (daily/monthly/per-product batch checklists, deviation rules editable as data)
+  - ChecklistRecord (unified daily/monthly/batch entries, soft-delete + edit history, 24h edit-lock)
+  - EventLogType/EventEntry (9 log types, schema-driven payloads: standard/water/pests)
+  - Equipment, Supplier, TraceabilityEntry, Recall
+  - Directory entries (chemicals/waste/medical-checks) + Allergen (fixed 14-item legal list, org-level toggle)
+  - Instruction + per-user InstructionReadReceipt, Task
+  - Attachment (real file upload, local disk now, swappable storage abstraction)
+  - Org-level timezone drives all "today"/"this month" logic
+
+  API: FastAPI, /api/v1, layered (routers/services/models/db), Pydantic v2 DTOs, unified error envelope, cursor pagination — same contract serves mobile now and web
+  later.
+
+  Testing: pytest + pytest-asyncio + httpx, 80%+ coverage focused on service-layer logic (deviation detection, dashboard aggregation, edit-lock windows, cert-expiry
+  thresholds, invite lifecycle).
+
+  Delivery: small reviewable slices. First slice: project scaffolding (uv, FastAPI skeleton, DB/config) + core tenancy models (Organization, User, Membership) with
+  migrations and tests — nothing else yet.
+
+  Ready to start on that first slice whenever you say go.
