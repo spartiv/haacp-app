@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_prefix="HACCP_", extra="ignore")
 
     environment: str = "development"
+    log_level: str = "INFO"
     database_url: str = "postgresql+asyncpg://haccp:haccp@localhost:5432/haccp"
     jwt_secret_key: str = "change-me-in-production"
     jwt_algorithm: str = "HS256"
@@ -14,6 +15,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 30
     invite_token_expire_days: int = 7
     storage_root: str = "./data/uploads"
+    attachment_max_size_bytes: int = 20 * 1024 * 1024
 
 
 @lru_cache
