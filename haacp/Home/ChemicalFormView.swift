@@ -1,0 +1,118 @@
+import SwiftUI
+
+struct ChemicalFormView: View {
+    @Environment(AuthStore.self) private var authStore
+    @Environment(\.dismiss) private var dismiss
+
+    let existing: ChemicalResponse?
+    let onSaved: (ChemicalResponse) -> Void
+
+    @State private var name: String
+    @State private var category: ChemicalCategory
+
+    @State private var isSaving = false
+    @State private var errorMessage: String?
+
+    init(onSaved: @escaping (ChemicalResponse) -> Void) {
+        self.existing = nil
+        self.onSaved = onSaved
+        _name = State(initialValue: "")
+        _category = State(initialValue: .cleaning)
+    }
+
+    init(existing: ChemicalResponse, onSaved: @escaping (ChemicalResponse) -> Void) {
+        self.existing = existing
+        self.onSaved = onSaved
+        _name = State(initialValue: existing.name)
+        _category = State(initialValue: existing.category)
+    }
+
+    private var isValid: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty
+    }
+
+    var body: some View {
+        NavigationStack {
+            ZStack {
+                Color.hBackground.ignoresSafeArea()
+
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Назва")
+                                .font(.headline)
+                                .foregroundStyle(Color.hTextPrimary)
+                            HaacpTextField("Назва засобу *", text: $name)
+                        }
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text("Категорія")
+                                .font(.headline)
+                                .foregroundStyle(Color.hTextPrimary)
+
+                            Picker("Категорія", selection: $category) {
+                                ForEach(ChemicalCategory.allCases, id: \.self) { cat in
+                                    Text(cat.displayName).tag(cat)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                        }
+
+                        if let error = errorMessage {
+                            Text(error)
+                                .font(.caption)
+                                .foregroundStyle(Color.hDeviationRed)
+                                .multilineTextAlignment(.center)
+                        }
+
+                        HaacpButton(existing == nil ? "Додати засіб" : "Зберегти зміни", isLoading: isSaving) {
+                            await save()
+                        }
+                        .opacity(isValid ? 1 : 0.5)
+                        .disabled(!isValid)
+                    }
+                    .padding()
+                }
+            }
+            .navigationTitle(existing == nil ? "Новий засіб" : "Редагувати")
+            #if os(iOS)
+            .navigationBarTitleDisplayMode(.inline)
+            #endif
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Скасувати") { dismiss() }
+                        .foregroundStyle(Color.hTextSecondary)
+                }
+            }
+        }
+    }
+
+    private func save() async {
+        guard let orgId = authStore.organizationId else { return }
+        isSaving = true
+        defer { isSaving = false }
+        do {
+            let saved: ChemicalResponse
+            if let existing {
+                let body = ChemicalUpdateRequest(
+                    name: name.trimmingCharacters(in: .whitespaces),
+                    category: category
+                )
+                saved = try await authStore.call { token in
+                    try await APIClient.updateChemical(orgId: orgId, chemicalId: existing.id, body: body, token: token)
+                }
+            } else {
+                let body = ChemicalCreateRequest(
+                    name: name.trimmingCharacters(in: .whitespaces),
+                    category: category
+                )
+                saved = try await authStore.call { token in
+                    try await APIClient.createChemical(orgId: orgId, body: body, token: token)
+                }
+            }
+            onSaved(saved)
+        } catch {
+            errorMessage = (error as? HaacpError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+}
