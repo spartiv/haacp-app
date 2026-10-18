@@ -1,4 +1,9 @@
+import uuid
+
 from httpx import AsyncClient
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from app.models import Organization
 
 
 async def _signup(client: AsyncClient, **overrides: str) -> dict:
@@ -94,3 +99,39 @@ async def test_logout_invalidates_refresh_token(client: AsyncClient) -> None:
         "/api/v1/auth/refresh", json={"refresh_token": refresh_token}
     )
     assert refresh_response.status_code == 401
+
+
+async def test_signup_stores_the_venue_timezone(
+    client: AsyncClient, db_session: AsyncSession
+) -> None:
+    response = await client.post(
+        "/api/v1/auth/signup",
+        json={
+            "email": "kyiv@cafe.ua",
+            "password": "supersecret123",
+            "full_name": "  Олена Поліщук  ",
+            "organization_name": "Кафе «Полтон»",
+            "timezone": "Europe/Kyiv",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["user"]["full_name"] == "Олена Поліщук"
+    organization = await db_session.get(Organization, uuid.UUID(response.json()["organization_id"]))
+    assert organization is not None
+    assert organization.timezone == "Europe/Kyiv"
+
+
+async def test_signup_rejects_unknown_timezone_and_blank_names(client: AsyncClient) -> None:
+    base = {
+        "email": "a@cafe.ua",
+        "password": "supersecret123",
+        "full_name": "A",
+        "organization_name": "B",
+    }
+
+    bad_zone = await client.post("/api/v1/auth/signup", json={**base, "timezone": "Mars/Base"})
+    blank_name = await client.post("/api/v1/auth/signup", json={**base, "full_name": "   "})
+
+    assert bad_zone.status_code == 422
+    assert blank_name.status_code == 422
