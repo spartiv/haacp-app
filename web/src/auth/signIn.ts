@@ -1,4 +1,4 @@
-import { login, logout } from '../api/auth'
+import { login, logout, signup } from '../api/auth'
 import { ApiError } from '../api/client'
 import { listMyOrganizations } from '../api/me'
 import type { AuthResponse, MyOrganization } from '../api/types'
@@ -43,6 +43,39 @@ export async function signIn(credentials: Credentials): Promise<PendingSignIn | 
     return null
   }
   return { email: credentials.email, auth, organizations }
+}
+
+export interface NewAccount extends Credentials {
+  fullName: string
+  organizationName: string
+}
+
+/** The venue's timezone decides when its day starts: take it from this device. */
+function deviceTimezone(): string | undefined {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** Creates the account + venue (as owner) and starts the session right away. */
+export async function signUp(account: NewAccount): Promise<void> {
+  const auth = await signup({
+    email: account.email,
+    password: account.password,
+    full_name: account.fullName,
+    organization_name: account.organizationName,
+    timezone: deviceTimezone() ?? 'UTC', // the server's default too
+  })
+  if (auth.organization_id == null) {
+    discardTokens(auth)
+    throw new ApiError(500, 'unexpected_error', 'Sign-up returned no organization.')
+  }
+  completeSignIn(
+    { email: account.email, auth, organizations: [] },
+    { organization_id: auth.organization_id, name: account.organizationName.trim(), role: 'owner', title: null },
+  )
 }
 
 export function completeSignIn(pending: PendingSignIn, organization: MyOrganization): void {

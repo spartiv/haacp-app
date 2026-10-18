@@ -4,7 +4,9 @@ import { readRememberedLogin, sessionStore } from '../../auth/session'
 import { type PendingSignIn, signIn } from '../../auth/signIn'
 import { errorCode, errorMessage, uk } from '../../i18n/uk'
 import { OrgPicker } from './OrgPicker'
-import './LoginScreen.css'
+import { Link } from 'react-router'
+import { routes } from '../../routes'
+import { AuthLayout } from './AuthLayout'
 
 const t = uk.login
 
@@ -84,75 +86,74 @@ export function LoginScreen() {
   }
 
   return (
-    <div className="login-page">
-      <section className="login-brand" aria-label="HACCP">
-        <p className="login-brand__title">НАССР</p>
-        <p className="login-brand__sub">{t.brandSub}</p>
-      </section>
+    <AuthLayout>
+      {picking ? (
+        <OrgPicker
+          pending={picking}
+          // Only the same account's last choice is meaningful.
+          lastUsedId={remembered?.email === picking.email ? remembered.organization_id : null}
+          onBack={() => setDismissed(picking)}
+        />
+      ) : (
+        <form className="login-sheet" action={formAction} noValidate aria-labelledby="login-title">
+          <h1 className="login-sheet__title caps" id="login-title">
+            {t.title}
+          </h1>
+          <p className="login-sheet__hint">{t.hint}</p>
 
-      <div className="login-sheet-stack">
-        {picking ? (
-          <OrgPicker
-            pending={picking}
-            // Only the same account's last choice is meaningful.
-            lastUsedId={remembered?.email === picking.email ? remembered.organization_id : null}
-            onBack={() => setDismissed(picking)}
-          />
-        ) : (
-          <form className="login-sheet" action={formAction} noValidate aria-labelledby="login-title">
-            <h1 className="login-sheet__title caps" id="login-title">
-              {t.title}
-            </h1>
-            <p className="login-sheet__hint">{t.hint}</p>
+          {endNotice && (
+            <p className="login-notice caps" role="status">
+              {endNotice}
+            </p>
+          )}
 
-            {endNotice && (
-              <p className="login-notice caps" role="status">
-                {endNotice}
+          {state.error !== null && (
+            <div className="login-alert" role="alert">
+              <p className="login-alert__label caps">{errorLabel(state.error)}</p>
+              <p className="login-alert__message">{errorMessage(state.error)}</p>
+              <p className="login-alert__code caps">
+                {uk.common.code}: {errorCode(state.error)}
               </p>
-            )}
-
-            {state.error !== null && (
-              <div className="login-alert" role="alert">
-                <p className="login-alert__label caps">{errorLabel(state.error)}</p>
-                <p className="login-alert__message">{errorMessage(state.error)}</p>
-                <p className="login-alert__code caps">
-                  {uk.common.code}: {errorCode(state.error)}
-                </p>
-              </div>
-            )}
-
-            <div className="login-field">
-              <label className="login-label caps" htmlFor="login-email">
-                {t.email}
-              </label>
-              <input
-                {...fieldProps('email')}
-                type="email"
-                autoComplete="username"
-                inputMode="email"
-                spellCheck={false}
-                defaultValue={state.email}
-                key={`email-${state.email}`}
-              />
-              {fieldError('email')}
             </div>
+          )}
 
-            <div className="login-field">
-              <label className="login-label caps" htmlFor="login-password">
-                {t.password}
-              </label>
-              <input {...fieldProps('password')} type="password" autoComplete="current-password" />
-              {fieldError('password')}
-            </div>
+          <div className="login-field">
+            <label className="login-label caps" htmlFor="login-email">
+              {t.email}
+            </label>
+            <input
+              {...fieldProps('email')}
+              type="email"
+              autoComplete="username"
+              inputMode="email"
+              spellCheck={false}
+              defaultValue={state.email}
+              key={`email-${state.email}`}
+            />
+            {fieldError('email')}
+          </div>
 
-            <button className="login-submit caps" type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
-              {isSubmitting ? t.submitting : `[ ${t.submit} ]`}
-            </button>
+          <div className="login-field">
+            <label className="login-label caps" htmlFor="login-password">
+              {t.password}
+            </label>
+            <input {...fieldProps('password')} type="password" autoComplete="current-password" />
+            {fieldError('password')}
+          </div>
 
-            <p className="login-sheet__foot caps">{t.foot}</p>
-          </form>
-        )}
-      </div>
-    </div>
+          <button className="login-submit caps" type="submit" disabled={isSubmitting} aria-busy={isSubmitting}>
+            {isSubmitting ? t.submitting : `[ ${t.submit} ]`}
+          </button>
+
+          <p className="login-switch">
+            {uk.signup.noAccount}{' '}
+            <Link className="login-switch__link caps" to={routes.signup}>
+              {uk.signup.register}
+            </Link>
+          </p>
+          <p className="login-sheet__foot caps">{t.foot}</p>
+        </form>
+      )}
+    </AuthLayout>
   )
 }

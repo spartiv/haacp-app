@@ -1,6 +1,7 @@
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router'
+import { BrowserRouter, Navigate, Route, Routes, useLocation } from 'react-router'
 import { type Session, useSession } from './auth/session'
 import { LoginScreen } from './features/auth/LoginScreen'
+import { SignupScreen } from './features/auth/SignupScreen'
 import { ControlSheetPage } from './features/controls/ControlSheetPage'
 import { DashboardPage } from './features/dashboard/DashboardPage'
 import { BatchesPage } from './features/journals/BatchesPage'
@@ -18,7 +19,12 @@ import { routePatterns, routes } from './routes'
 // fails, which drops back to login.
 function App() {
   const session = useSession()
-  return <BrowserRouter>{session === null ? <LoginScreen /> : <SignedIn session={session} />}</BrowserRouter>
+  return <BrowserRouter>{session === null ? <SignedOut /> : <SignedIn session={session} />}</BrowserRouter>
+}
+
+/** /signup shows sign-up; any other URL shows login and stays put, so a deep link survives sign-in. */
+function SignedOut() {
+  return useLocation().pathname === routes.signup ? <SignupScreen /> : <LoginScreen />
 }
 
 function SignedIn({ session }: { session: Session }) {

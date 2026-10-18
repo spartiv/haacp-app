@@ -2,6 +2,7 @@ import type { JournalGroup } from './features/journals/catalog'
 
 export const routes = {
   dashboard: '/',
+  signup: '/signup',
   daily: '/controls/daily',
   journals: '/journals',
   monthly: '/journals/monthly',

@@ -1744,6 +1744,7 @@ export interface components {
             organization_name: string;
             /**
              * Timezone
+             * @description IANA timezone of the venue, e.g. `Europe/Kyiv`. Decides when its day (and daily control sheet) starts.
              * @default UTC
              */
             timezone: string;

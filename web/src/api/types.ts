@@ -11,6 +11,7 @@ export type { components, paths }
 export type AuthResponse = Schemas['AuthResponse']
 export type TokenResponse = Schemas['TokenResponse']
 export type LoginRequest = Schemas['LoginRequest']
+export type SignupRequest = Schemas['SignupRequest']
 export type UserResponse = Schemas['UserResponse']
 
 // Me
