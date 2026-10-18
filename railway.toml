@@ -17,9 +17,8 @@ watchPatterns = [
 ]
 
 [deploy]
-# Apply database migrations before the new version starts taking traffic.
-# If they fail, the deploy stops and the previous version keeps running.
-preDeployCommand = ["alembic upgrade head"]
+# Database migrations run in the container's start command (see Dockerfile),
+# so they happen on every deploy regardless of how this file is applied.
 healthcheckPath = "/api/v1/health"
 healthcheckTimeout = 60
 restartPolicyType = "ON_FAILURE"

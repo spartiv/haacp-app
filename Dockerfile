@@ -39,5 +39,8 @@ ENV PATH="/srv/.venv/bin:$PATH" \
     HACCP_LOCAL_STORAGE_DIR=/data/uploads
 
 EXPOSE 8000
-# Railway sets $PORT and terminates HTTPS at its proxy.
-CMD ["sh", "-c", "exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
+# Bring the database up to date, then serve. Migrations are idempotent, so
+# running them on every start is safe, and it doesn't depend on the host
+# honouring a separate pre-deploy step. If they fail, the server never starts
+# and the previous deploy keeps serving. Railway sets $PORT and terminates HTTPS.
+CMD ["sh", "-c", "alembic upgrade head && exec uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000} --proxy-headers --forwarded-allow-ips='*'"]
