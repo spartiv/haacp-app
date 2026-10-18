@@ -1,0 +1,28 @@
+# Only the backend, migrations and web app go into the image.
+.git
+.gitignore
+.github
+.claude
+.idea
+.venv
+.env
+.env.*
+!.env.example
+**/__pycache__
+.mypy_cache
+.pytest_cache
+.ruff_cache
+.coverage
+htmlcov
+uploads
+tests
+handoff
+web/node_modules
+web/dist
+web/prototypes
+# iOS app (same repo, separate build)
+haacp
+haacp.xcodeproj
+haacpTests
+haacpUITests
+*.md

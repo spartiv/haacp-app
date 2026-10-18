@@ -8,5 +8,10 @@ __pycache__/
 .coverage
 htmlcov/
 .env
-data/uploads/
 .DS_Store
+# Local dev file storage (HACCP_STORAGE_BACKEND=local)
+uploads/
+
+# Built web app and local tool settings
+web/dist/
+.claude/settings.local.json
