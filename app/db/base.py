@@ -1,13 +1,25 @@
+import enum
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, func
+from sqlalchemy import DateTime, Enum, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
 class Base(DeclarativeBase):
     pass
+
+
+def pg_enum(enum_cls: type[enum.Enum], name: str) -> Enum:
+    """Postgres native enum storing each member's `.value` (e.g. "owner")
+    instead of SQLAlchemy's default of the member's NAME (e.g. "OWNER")."""
+    return Enum(
+        enum_cls,
+        name=name,
+        native_enum=True,
+        values_callable=lambda members: [member.value for member in members],
+    )
 
 
 class UUIDPrimaryKeyMixin:

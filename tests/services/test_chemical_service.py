@@ -1,12 +1,11 @@
 import uuid
-from pathlib import Path
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import ChemicalCategory
 from app.services import attachment_service, auth_service, chemical_service
-from app.services.storage import LocalDiskStorageBackend
+from app.services.storage import S3StorageBackend
 
 
 async def _signup_owner(db_session: AsyncSession) -> tuple[uuid.UUID, uuid.UUID]:
@@ -65,10 +64,10 @@ async def test_soft_delete_chemical_then_get_raises(db_session: AsyncSession) ->
 
 
 async def test_attach_and_detach_chemical_document(
-    db_session: AsyncSession, tmp_path: Path
+    db_session: AsyncSession, s3_storage: S3StorageBackend
 ) -> None:
     org_id, user_id = await _signup_owner(db_session)
-    storage = LocalDiskStorageBackend(tmp_path)
+    storage = s3_storage
     chemical = await chemical_service.create_chemical(
         db_session, organization_id=org_id, name="X", category=ChemicalCategory.CLEANING
     )
@@ -98,10 +97,10 @@ async def test_attach_and_detach_chemical_document(
 
 
 async def test_attaching_new_chemical_document_replaces_and_deletes_old_one(
-    db_session: AsyncSession, tmp_path: Path
+    db_session: AsyncSession, s3_storage: S3StorageBackend
 ) -> None:
     org_id, user_id = await _signup_owner(db_session)
-    storage = LocalDiskStorageBackend(tmp_path)
+    storage = s3_storage
     chemical = await chemical_service.create_chemical(
         db_session, organization_id=org_id, name="X", category=ChemicalCategory.CLEANING
     )

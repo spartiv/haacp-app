@@ -26,3 +26,15 @@
   migrations and tests — nothing else yet.
 
   Ready to start on that first slice whenever you say go.
+
+  1. Add email validation, format + domain
+  2. Cancelled on swipe on home page - fix
+
+
+  Core feature
+  1. Заполнять журналы (журналы предсозданы, как будто регламентированы) - OPEN
+  2. Журналы бывают нескольких типов:
+    2.1 Daily - Чаще всего
+    2.2 Monthly
+    2.3 Events
+  3. Профиль и компания добавить

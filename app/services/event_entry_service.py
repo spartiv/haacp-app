@@ -6,8 +6,9 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFoundError
+from app.core.errors import DomainError, NotFoundError
 from app.models import EventEntry, EventLogSchema, EventLogType
+from app.services import organization_service
 
 logger = logging.getLogger(__name__)
 
@@ -26,8 +27,10 @@ class EventEntryNotFoundError(NotFoundError):
     message = "Event entry not found"
 
 
-class InvalidEventPayloadError(Exception):
-    pass
+class InvalidEventPayloadError(DomainError):
+    status_code = 422
+    code = "invalid_event_payload"
+    message = "Payload does not match this log type's schema"
 
 
 async def list_event_log_types(db: AsyncSession) -> list[EventLogType]:
@@ -78,8 +81,15 @@ async def record_event_entry(
     entry_date: date,
     responsible_user_id: uuid.UUID,
     payload: dict[str, Any],
+    performed_by_user_id: uuid.UUID | None = None,
 ) -> EventEntry:
     log_type = await get_event_log_type(db, event_log_type_id=event_log_type_id)
+    performer = await organization_service.resolve_performer(
+        db,
+        organization_id=organization_id,
+        performer_user_id=performed_by_user_id,
+        actor_user_id=responsible_user_id,
+    )
     normalized_payload, has_deviation = _normalize_payload(log_type.schema, payload)
 
     entry = EventEntry(
@@ -87,6 +97,7 @@ async def record_event_entry(
         event_log_type_id=event_log_type_id,
         entry_date=entry_date,
         responsible_user_id=responsible_user_id,
+        performed_by_user_id=performer,
         payload=normalized_payload,
         has_deviation=has_deviation,
     )

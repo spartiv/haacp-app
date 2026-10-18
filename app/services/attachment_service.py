@@ -1,12 +1,13 @@
 import logging
 import re
 import uuid
+from typing import Protocol
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.errors import NotFoundError
+from app.core.errors import DomainError, NotFoundError
 from app.models import Attachment
 from app.services.storage import StorageBackend
 
@@ -22,12 +23,16 @@ class AttachmentNotFoundError(NotFoundError):
     message = "Attachment not found"
 
 
-class AttachmentTooLargeError(Exception):
-    pass
+class AttachmentTooLargeError(DomainError):
+    status_code = 413
+    code = "attachment_too_large"
+    message = "File exceeds the maximum upload size"
 
 
-class UnsupportedContentTypeError(Exception):
-    pass
+class UnsupportedContentTypeError(DomainError):
+    status_code = 415
+    code = "unsupported_content_type"
+    message = "File type is not supported"
 
 
 def _safe_extension(filename: str) -> str:
@@ -124,3 +129,45 @@ async def delete_attachment(
     await db.commit()
     await storage.delete(key=storage_key)
     logger.info("Attachment deleted: attachment_id=%s", attachment_id)
+
+
+class _HasAttachmentId(Protocol):
+    attachment_id: uuid.UUID | None
+
+
+async def attach_document_to(
+    db: AsyncSession,
+    *,
+    entity: _HasAttachmentId,
+    organization_id: uuid.UUID,
+    attachment_id: uuid.UUID,
+    storage: StorageBackend,
+) -> None:
+    """Shared by Equipment/Chemical/... services: validates the new
+    attachment belongs to this org, replaces (and deletes) any previously
+    linked attachment, then points `entity.attachment_id` at the new one.
+    Caller is responsible for committing."""
+    await get_attachment(db, organization_id=organization_id, attachment_id=attachment_id)
+    if entity.attachment_id is not None:
+        old_attachment = await get_attachment(
+            db, organization_id=organization_id, attachment_id=entity.attachment_id
+        )
+        await delete_attachment(db, attachment=old_attachment, storage=storage)
+    entity.attachment_id = attachment_id
+
+
+async def detach_document_from(
+    db: AsyncSession,
+    *,
+    entity: _HasAttachmentId,
+    organization_id: uuid.UUID,
+    storage: StorageBackend,
+) -> None:
+    """Shared by Equipment/Chemical/... services: clears `entity.attachment_id`
+    and deletes the now-unreferenced attachment, if one was linked."""
+    if entity.attachment_id is not None:
+        attachment = await get_attachment(
+            db, organization_id=organization_id, attachment_id=entity.attachment_id
+        )
+        entity.attachment_id = None
+        await delete_attachment(db, attachment=attachment, storage=storage)

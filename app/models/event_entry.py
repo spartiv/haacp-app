@@ -26,5 +26,11 @@ class EventEntry(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     responsible_user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
+    # Who physically did the work (picked on a shared kitchen device). The
+    # signed-in account that saved it is recorded separately. Null only on rows
+    # written before this field existed.
+    performed_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )
     payload: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False)
     has_deviation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)

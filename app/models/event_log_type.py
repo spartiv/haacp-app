@@ -1,9 +1,9 @@
 import enum
 
-from sqlalchemy import Enum, Integer, String
+from sqlalchemy import Integer, String
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, UUIDPrimaryKeyMixin
+from app.db.base import Base, UUIDPrimaryKeyMixin, pg_enum
 
 
 class EventLogSchema(enum.StrEnum):
@@ -74,13 +74,7 @@ class EventLogType(UUIDPrimaryKeyMixin, Base):
     key: Mapped[str] = mapped_column(String(50), nullable=False, unique=True)
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     schema: Mapped[EventLogSchema] = mapped_column(
-        Enum(
-            EventLogSchema,
-            name="event_log_schema",
-            native_enum=True,
-            values_callable=lambda enum_cls: [member.value for member in enum_cls],
-        ),
-        nullable=False,
+        pg_enum(EventLogSchema, "event_log_schema"), nullable=False
     )
     icon_label: Mapped[str] = mapped_column(String(10), nullable=False)
     position: Mapped[int] = mapped_column(Integer, nullable=False)

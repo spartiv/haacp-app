@@ -6,7 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app.core.errors import AppError, NotFoundError
+from app.core.errors import AppError, DomainError
 
 logger = logging.getLogger(__name__)
 
@@ -26,12 +26,20 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     )
 
 
-async def not_found_handler(request: Request, exc: NotFoundError) -> JSONResponse:
-    logger.info("%s %s -> 404 %s", request.method, request.url.path, exc.code)
-    return JSONResponse(
-        status_code=404,
-        content={"error": {"code": exc.code, "message": exc.message}},
+async def domain_error_handler(request: Request, exc: DomainError) -> JSONResponse:
+    log = logger.info if exc.status_code == 404 else logger.warning
+    log(
+        "%s %s -> %s %s: %s",
+        request.method,
+        request.url.path,
+        exc.status_code,
+        exc.code,
+        exc.message,
     )
+    error: dict[str, object] = {"code": exc.code, "message": exc.message}
+    if exc.details is not None:
+        error["details"] = exc.details
+    return JSONResponse(status_code=exc.status_code, content={"error": error})
 
 
 async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:

@@ -5,7 +5,6 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, require_membership
-from app.core.errors import AppError
 from app.db.session import get_db_session
 from app.models import Batch, BatchAnswer, Membership, MembershipRole, User
 from app.schemas.product import (
@@ -43,6 +42,7 @@ def _batch_response(batch: Batch, answers: list[BatchAnswer]) -> BatchResponse:
         deviation_note=batch.deviation_note,
         corrective_action=batch.corrective_action,
         signatory_user_id=batch.signatory_user_id,
+        performed_by_user_id=batch.performed_by_user_id or batch.signatory_user_id,
         answers=[
             BatchAnswerResponse(checklist_item_id=a.checklist_item_id, answer=a.answer)
             for a in answers
@@ -173,26 +173,19 @@ async def record_batch(
     current_user: CurrentUser,
     _: AnyMember,
 ) -> BatchResponse:
-    try:
-        batch = await batch_service.record_batch(
-            db,
-            organization_id=organization_id,
-            product_id=product_id,
-            number=payload.number,
-            name=payload.name,
-            production_date=payload.production_date,
-            answers={a.checklist_item_id: a.answer for a in payload.answers},
-            deviation_note=payload.deviation_note,
-            corrective_action=payload.corrective_action,
-            signatory_user_id=current_user.id,
-        )
-    except batch_service.ChecklistMismatchError as exc:
-        raise AppError(
-            422,
-            "checklist_mismatch",
-            "Answers must cover exactly the product's current checklist items",
-        ) from exc
-
+    batch = await batch_service.record_batch(
+        db,
+        organization_id=organization_id,
+        product_id=product_id,
+        number=payload.number,
+        name=payload.name,
+        production_date=payload.production_date,
+        answers={a.checklist_item_id: a.answer for a in payload.answers},
+        deviation_note=payload.deviation_note,
+        corrective_action=payload.corrective_action,
+        signatory_user_id=current_user.id,
+        performed_by_user_id=payload.performed_by_user_id,
+    )
     answers = await batch_service.list_batch_answers(db, batch_id=batch.id)
     return _batch_response(batch, answers)
 
@@ -228,30 +221,22 @@ async def edit_batch(
     current_user: CurrentUser,
     _: AnyMember,
 ) -> BatchResponse:
-    try:
-        batch = await batch_service.edit_batch(
-            db,
-            organization_id=organization_id,
-            batch_id=batch_id,
-            edited_by_user_id=current_user.id,
-            number=payload.number,
-            name=payload.name,
-            production_date=payload.production_date,
-            answers=(
-                {a.checklist_item_id: a.answer for a in payload.answers}
-                if payload.answers is not None
-                else None
-            ),
-            deviation_note=payload.deviation_note,
-            corrective_action=payload.corrective_action,
-        )
-    except batch_service.ChecklistMismatchError as exc:
-        raise AppError(
-            422,
-            "checklist_mismatch",
-            "Answers must cover exactly the product's current checklist items",
-        ) from exc
-
+    batch = await batch_service.edit_batch(
+        db,
+        organization_id=organization_id,
+        batch_id=batch_id,
+        edited_by_user_id=current_user.id,
+        number=payload.number,
+        name=payload.name,
+        production_date=payload.production_date,
+        answers=(
+            {a.checklist_item_id: a.answer for a in payload.answers}
+            if payload.answers is not None
+            else None
+        ),
+        deviation_note=payload.deviation_note,
+        corrective_action=payload.corrective_action,
+    )
     answers = await batch_service.list_batch_answers(db, batch_id=batch.id)
     return _batch_response(batch, answers)
 

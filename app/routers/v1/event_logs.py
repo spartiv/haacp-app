@@ -5,9 +5,8 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_current_user, require_membership
-from app.core.errors import AppError
 from app.db.session import get_db_session
-from app.models import Membership, User
+from app.models import EventEntry, Membership, User
 from app.schemas.event_entry import (
     EventEntryCreateRequest,
     EventEntryResponse,
@@ -20,6 +19,18 @@ router = APIRouter(prefix="/organizations/{organization_id}", tags=["event-logs"
 DbSession = Annotated[AsyncSession, Depends(get_db_session)]
 AnyMember = Annotated[Membership, Depends(require_membership())]
 CurrentUser = Annotated[User, Depends(get_current_user)]
+
+
+def _entry_response(entry: EventEntry) -> EventEntryResponse:
+    return EventEntryResponse(
+        id=entry.id,
+        event_log_type_id=entry.event_log_type_id,
+        entry_date=entry.entry_date,
+        responsible_user_id=entry.responsible_user_id,
+        performed_by_user_id=entry.performed_by_user_id or entry.responsible_user_id,
+        payload=entry.payload,
+        has_deviation=entry.has_deviation,
+    )
 
 
 @router.get("/event-log-types", response_model=list[EventLogTypeResponse])
@@ -53,20 +64,16 @@ async def record_event_entry(
     current_user: CurrentUser,
     _: AnyMember,
 ) -> EventEntryResponse:
-    try:
-        entry = await event_entry_service.record_event_entry(
-            db,
-            organization_id=organization_id,
-            event_log_type_id=event_log_type_id,
-            entry_date=payload.entry_date,
-            responsible_user_id=current_user.id,
-            payload=payload.payload,
-        )
-    except event_entry_service.InvalidEventPayloadError as exc:
-        raise AppError(
-            422, "invalid_event_payload", "Payload does not match this log type's schema"
-        ) from exc
-    return EventEntryResponse.model_validate(entry)
+    entry = await event_entry_service.record_event_entry(
+        db,
+        organization_id=organization_id,
+        event_log_type_id=event_log_type_id,
+        entry_date=payload.entry_date,
+        responsible_user_id=current_user.id,
+        payload=payload.payload,
+        performed_by_user_id=payload.performed_by_user_id,
+    )
+    return _entry_response(entry)
 
 
 @router.get("/event-log-types/{event_log_type_id}/entries", response_model=list[EventEntryResponse])
@@ -76,7 +83,7 @@ async def list_event_entries(
     entries = await event_entry_service.list_event_entries(
         db, organization_id=organization_id, event_log_type_id=event_log_type_id
     )
-    return [EventEntryResponse.model_validate(e) for e in entries]
+    return [_entry_response(e) for e in entries]
 
 
 @router.delete("/event-entries/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)

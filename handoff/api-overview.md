@@ -10,9 +10,10 @@ codegen tool for exact request/response shapes. This file is the human-readable 
 - `POST /api/v1/auth/signup` — creates a new Organization + the caller as its `owner`,
   returns `{ user, tokens: {access_token, refresh_token}, organization_id }`
 - `POST /api/v1/auth/login` — `{ email, password }` → same token shape, `organization_id`
-  is `null` here (a user can belong to multiple orgs; login doesn't pick one for you —
-  there's no "list my orgs" endpoint yet, so today a client should just remember the
-  `organization_id` it got at signup/invite-accept time)
+  is `null` here (a user can belong to multiple orgs; login doesn't pick one for you).
+  Right after login call `GET /api/v1/me/organizations` → `[{ organization_id, name, role,
+  title }]` (active memberships, sorted by name): one → use it, several → let the user
+  pick, none → the account has no access.
 - `POST /api/v1/auth/refresh` — rotates a refresh token for a new pair (old one becomes invalid)
 - `POST /api/v1/auth/logout` — revokes a refresh token
 - All other endpoints require `Authorization: Bearer <access_token>`
@@ -83,6 +84,63 @@ Both the upsert body and every `ControlRecordResponse` also now carry an optiona
 free-text `note` (`string | null`) — a general remark field alongside the Yes/No
 answers, not tied to any specific checklist item. `null`/omitted means "no note."
 
+**Per-item control sheet + audit log (new — preferred for web; mobile can migrate)**
+The checklist can also be filled one item at a time, with a draft → submitted lifecycle:
+- `GET .../controls/{period}/sheet?date=YYYY-MM-DD` — always 200. Every active item with
+  `status` = `pending` | `pass` | `deviation`, its `corrective_action`, `checked_by
+  {id, full_name}` and `checked_at`. `record_id`/`status` are `null` until the first check.
+  Replaces the "404 means not filled" dance of `GET .../current`.
+- `POST .../controls/{period}/items/{item_id}/check` — body `{ status: "pass"|"deviation",
+  corrective_action?, amendment_reason?, period_date? }`. Creates the day's record as a
+  `draft` on first use. Returns the whole updated sheet.
+  - `deviation` needs a `corrective_action` (≥3 chars) → else `422 corrective_action_required`
+  - once the record is `submitted`, any change needs an `amendment_reason` (≥3 chars) →
+    else `422 amendment_reason_required`; the change is logged as `item_amended`
+  - re-sending an identical check is a no-op (no audit entry)
+- `POST .../control-records/{record_id}/submit` — finalizes. `409 control_record_incomplete`
+  if any item is pending (`error.details` lists `{control_checklist_item_id, label}` for each);
+  `409 control_record_already_submitted` if done twice.
+- `GET .../control-records/{record_id}/audit-events?cursor=&limit=` — append-only log,
+  newest first: `event_type` (`item_checked` | `item_amended` | `record_submitted`),
+  `previous_status` → `new_status`, `corrective_action`, `amendment_reason`, `actor
+  {id, full_name}`, server `created_at`. Page with `next_cursor` (null on the last page).
+  The database itself rejects any UPDATE/DELETE of these rows.
+
+*Compatibility:* `PUT .../current` and `PATCH .../control-records/{id}` still work unchanged
+(no corrective action required there). They now also write audit events and **auto-submit**
+the record; changes they make after submission are logged as amendments with a fixed
+"legacy client" reason. **Submitted records can no longer be deleted** (`409
+control_record_submitted`) — only drafts can.
+
+**Measured checklist items (temperatures etc.)**
+A control checklist item has `item_type`: `bool` (Так/Ні, as before) or `numeric` — a
+reading with `unit` (e.g. `°C`) and a safe range `min_value` / `max_value` (inclusive;
+either may be `null` = open, e.g. freezer `max_value: -18`). The type is fixed at creation;
+label, unit and range can be PATCHed (partial: send only what changes, `null` opens a bound).
+Invalid config → `422 invalid_checklist_item_config`.
+- Check a numeric item with `POST .../items/{item_id}/check` body `{ value: 3.5 }` (max 2
+  decimals). The **server** decides: inside the range → `pass`, outside → `deviation`
+  (needs `corrective_action`, same as any deviation). A `status` sent for a numeric item is
+  ignored. Missing value → `422 numeric_value_required`; a value on a Yes/No item →
+  `422 numeric_value_not_applicable`.
+- Sheet items carry `item_type`, `unit`, `min_value`, `max_value`, `value`. Once measured,
+  the limits shown are the ones the value **was judged against** — tightening a range later
+  never rewrites past verdicts. Audit events carry `numeric_value` and `item_unit`.
+- The legacy full-sheet endpoints (`PUT .../current`, `PATCH .../control-records/{id}`)
+  only carry Yes/No answers, so they refuse checklists containing numeric items with
+  `422 numeric_items_not_supported` — clients must use the per-item check endpoint.
+
+**Team & "performed by" (shared kitchen devices)**
+`GET .../members` → `[{ user_id, full_name, role, title, status }]`, active members first,
+then removed ones (kept so old records still resolve to a name). Any member can read it.
+Item checks, event entries and batches accept an optional `performed_by_user_id`: who
+physically did the work when one account is signed in on a shared tablet. It must be an
+**active** member (else `422 invalid_performer`) and defaults to the signed-in user. The
+signed-in account is always recorded too (`checked_by` / `actor` / `responsible_user_id` /
+`signatory_user_id`); responses add `performed_by` (sheet items, audit events) or
+`performed_by_user_id` (event entries, batches). Changing only the performer of a check is
+a real change and is audit-logged.
+
 **Equipment**
 `type` (`production`|`refrigeration`|`measuring`|`other`), maintenance `frequency` (free
 text), `amount`, `affects_product_safety` (bool — feeds the dashboard's attention list),
@@ -120,6 +178,14 @@ briefings). `GET .../event-log-types` to get the catalog + each type's `log_sche
 don't re-sort client-side. Currently draws from: unfilled daily/monthly controls
 (critical), safety-critical equipment missing a document (warning), medical checkups
 overdue or due within 14 days (critical/warning). `days` is negative when overdue.
+`filled` is true only for a **submitted** sheet; a draft reports `filled: false` but
+still exposes its `has_deviation`, and its attention label says "розпочато, але не подано".
+
+**Setup progress** — `GET /api/v1/organizations/{id}/setup-progress` → `{ completed, total,
+steps: [{ key, label, done, count }] }`. Computed live from existing data, in the
+recommended order: `daily_checklist`, `monthly_checklist`, `equipment`, `chemicals`,
+`medical_checks`, `products`, `team` (needs ≥2 active members), `first_daily_submitted`.
+`label` is Ukrainian; `key` is stable for client-side translations.
 
 ## Attachments (shared across Equipment/Chemicals — more domains may adopt it later)
 1. `POST /api/v1/organizations/{id}/attachments` — multipart `file` upload (PDF/PNG/JPEG
@@ -131,6 +197,11 @@ overdue or due within 14 days (critical/warning). `days` is negative when overdu
    (sets `Content-Disposition` with the original filename)
 4. `DELETE .../equipment/{id}/attachment` detaches *and* deletes the stored file
 
+Storage: S3 in every environment except `HACCP_ENVIRONMENT=development` (the default),
+which saves to the git-ignored `uploads/` folder so local uploads work without cloud
+credentials. Override with `HACCP_STORAGE_BACKEND=s3|local`. Downloads send the original
+filename (Ukrainian included) via RFC 5987 `filename*`.
+
 ## Full endpoint list (as of now)
 
 | Method | Path | Notes |
@@ -140,6 +211,8 @@ overdue or due within 14 days (critical/warning). `days` is negative when overdu
 | POST | `/api/v1/auth/login` | |
 | POST | `/api/v1/auth/refresh` | |
 | POST | `/api/v1/auth/logout` | |
+| GET | `/api/v1/me/organizations` | any signed-in user |
+| GET | `/api/v1/organizations/{id}/members` | any member |
 | POST | `/api/v1/organizations/{id}/invites` | owner/manager |
 | GET | `/api/v1/invites/{token}` | public |
 | POST | `/api/v1/invites/{token}/accept` | |
@@ -171,9 +244,14 @@ overdue or due within 14 days (critical/warning). `days` is negative when overdu
 | PATCH, DELETE | `/api/v1/organizations/{id}/controls/{period}/checklist-items/{item_id}` | owner/manager |
 | GET, PUT | `/api/v1/organizations/{id}/controls/{period}/current` | any member |
 | GET | `/api/v1/organizations/{id}/controls/{period}/records` | any member |
-| GET, PATCH, DELETE | `/api/v1/organizations/{id}/control-records/{record_id}` | any member |
+| GET, PATCH, DELETE | `/api/v1/organizations/{id}/control-records/{record_id}` | any member (DELETE: drafts only) |
 | GET | `/api/v1/organizations/{id}/control-records/{record_id}/history` | any member |
+| GET | `/api/v1/organizations/{id}/controls/{period}/sheet` | any member |
+| POST | `/api/v1/organizations/{id}/controls/{period}/items/{item_id}/check` | any member |
+| POST | `/api/v1/organizations/{id}/control-records/{record_id}/submit` | any member |
+| GET | `/api/v1/organizations/{id}/control-records/{record_id}/audit-events` | any member |
 | GET | `/api/v1/organizations/{id}/dashboard` | any member |
+| GET | `/api/v1/organizations/{id}/setup-progress` | any member |
 
 `{period}` above is a path segment, literally `daily` or `monthly`.
 
@@ -181,7 +259,6 @@ overdue or due within 14 days (critical/warning). `days` is negative when overdu
 - **Traceability / Suppliers / Recalls** — explicitly deferred, not in scope currently
 - **Instructions** (SOP documents, read-tracking) — explicitly deferred
 - **Tasks** (simple to-do list) — not started
-- No "list my organizations" endpoint yet (relevant if a user is ever in >1 org)
 
 Everything else from the design mockup (auth, dashboard, daily/monthly controls, batch
 recording, event logs, directories, equipment, allergens) is live and tested.

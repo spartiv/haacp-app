@@ -88,15 +88,13 @@ async def attach_document(
     storage: StorageBackend,
 ) -> Chemical:
     chemical = await get_chemical(db, organization_id=organization_id, chemical_id=chemical_id)
-    await attachment_service.get_attachment(
-        db, organization_id=organization_id, attachment_id=attachment_id
+    await attachment_service.attach_document_to(
+        db,
+        entity=chemical,
+        organization_id=organization_id,
+        attachment_id=attachment_id,
+        storage=storage,
     )
-    if chemical.attachment_id is not None:
-        old_attachment = await attachment_service.get_attachment(
-            db, organization_id=organization_id, attachment_id=chemical.attachment_id
-        )
-        await attachment_service.delete_attachment(db, attachment=old_attachment, storage=storage)
-    chemical.attachment_id = attachment_id
     await db.commit()
     return chemical
 
@@ -105,10 +103,7 @@ async def detach_document(
     db: AsyncSession, *, organization_id: uuid.UUID, chemical_id: uuid.UUID, storage: StorageBackend
 ) -> Chemical:
     chemical = await get_chemical(db, organization_id=organization_id, chemical_id=chemical_id)
-    if chemical.attachment_id is not None:
-        attachment = await attachment_service.get_attachment(
-            db, organization_id=organization_id, attachment_id=chemical.attachment_id
-        )
-        chemical.attachment_id = None
-        await attachment_service.delete_attachment(db, attachment=attachment, storage=storage)
+    await attachment_service.detach_document_from(
+        db, entity=chemical, organization_id=organization_id, storage=storage
+    )
     return chemical

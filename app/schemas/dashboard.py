@@ -17,3 +17,16 @@ class DashboardResponse(BaseModel):
     monthly_control: ControlStatusResponse
     batches_this_month: int
     attention_items: list[AttentionItemResponse]
+
+
+class SetupStepResponse(BaseModel):
+    key: str
+    label: str
+    done: bool
+    count: int
+
+
+class SetupProgressResponse(BaseModel):
+    completed: int
+    total: int
+    steps: list[SetupStepResponse]

@@ -1,12 +1,11 @@
 import uuid
-from pathlib import Path
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import EquipmentType
 from app.services import attachment_service, auth_service, equipment_service
-from app.services.storage import LocalDiskStorageBackend
+from app.services.storage import S3StorageBackend
 
 
 async def _signup_owner(db_session: AsyncSession) -> tuple[uuid.UUID, uuid.UUID]:
@@ -126,9 +125,11 @@ async def test_update_equipment_partial_fields(db_session: AsyncSession) -> None
     assert fully_updated.amount == 5
 
 
-async def test_attach_and_detach_document(db_session: AsyncSession, tmp_path: Path) -> None:
+async def test_attach_and_detach_document(
+    db_session: AsyncSession, s3_storage: S3StorageBackend
+) -> None:
     org_id, user_id = await _signup_owner(db_session)
-    storage = LocalDiskStorageBackend(tmp_path)
+    storage = s3_storage
     equipment = await equipment_service.create_equipment(
         db_session,
         organization_id=org_id,
@@ -168,10 +169,10 @@ async def test_attach_and_detach_document(db_session: AsyncSession, tmp_path: Pa
 
 
 async def test_attaching_new_document_replaces_and_deletes_old_one(
-    db_session: AsyncSession, tmp_path: Path
+    db_session: AsyncSession, s3_storage: S3StorageBackend
 ) -> None:
     org_id, user_id = await _signup_owner(db_session)
-    storage = LocalDiskStorageBackend(tmp_path)
+    storage = s3_storage
     equipment = await equipment_service.create_equipment(
         db_session,
         organization_id=org_id,
@@ -223,10 +224,10 @@ async def test_attaching_new_document_replaces_and_deletes_old_one(
 
 
 async def test_detach_document_when_none_attached_is_a_no_op(
-    db_session: AsyncSession, tmp_path: Path
+    db_session: AsyncSession, s3_storage: S3StorageBackend
 ) -> None:
     org_id, _ = await _signup_owner(db_session)
-    storage = LocalDiskStorageBackend(tmp_path)
+    storage = s3_storage
     equipment = await equipment_service.create_equipment(
         db_session,
         organization_id=org_id,

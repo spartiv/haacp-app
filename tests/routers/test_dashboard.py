@@ -74,3 +74,30 @@ async def test_outsider_cannot_access_dashboard(client: AsyncClient) -> None:
 
     assert response.status_code == 403
     assert response.json()["error"]["code"] == "forbidden"
+
+
+async def test_draft_daily_control_is_not_filled(client: AsyncClient) -> None:
+    owner = await _signup(client)
+    org_id = owner["organization_id"]
+    token = owner["tokens"]["access_token"]
+    base = f"/api/v1/organizations/{org_id}"
+    first = await client.post(
+        f"{base}/controls/daily/checklist-items", json={"label": "Q1"}, headers=_auth_header(token)
+    )
+    await client.post(
+        f"{base}/controls/daily/checklist-items", json={"label": "Q2"}, headers=_auth_header(token)
+    )
+    await client.post(
+        f"{base}/controls/daily/items/{first.json()['id']}/check",
+        json={"status": "deviation", "corrective_action": "Викликано майстра"},
+        headers=_auth_header(token),
+    )
+
+    response = await client.get(f"{base}/dashboard", headers=_auth_header(token))
+
+    body = response.json()
+    # Half-done draft: not filled, but its deviation is already visible.
+    assert body["daily_control"] == {"filled": False, "has_deviation": True}
+    labels = [item["label"] for item in body["attention_items"]]
+    assert "Щоденний контроль на сьогодні розпочато, але не подано" in labels
+    assert "Щоденний контроль на сьогодні не заповнено" not in labels

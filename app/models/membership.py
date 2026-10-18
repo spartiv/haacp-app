@@ -2,11 +2,11 @@ import enum
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, ForeignKey, String, UniqueConstraint
+from sqlalchemy import ForeignKey, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, pg_enum
 
 if TYPE_CHECKING:
     from app.models.organization import Organization
@@ -37,21 +37,10 @@ class Membership(UUIDPrimaryKeyMixin, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
     role: Mapped[MembershipRole] = mapped_column(
-        Enum(
-            MembershipRole,
-            name="membership_role",
-            native_enum=True,
-            values_callable=lambda enum_cls: [member.value for member in enum_cls],
-        ),
-        nullable=False,
+        pg_enum(MembershipRole, "membership_role"), nullable=False
     )
     status: Mapped[MembershipStatus] = mapped_column(
-        Enum(
-            MembershipStatus,
-            name="membership_status",
-            native_enum=True,
-            values_callable=lambda enum_cls: [member.value for member in enum_cls],
-        ),
+        pg_enum(MembershipStatus, "membership_status"),
         nullable=False,
         default=MembershipStatus.ACTIVE,
     )

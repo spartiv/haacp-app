@@ -4,8 +4,14 @@ from datetime import date, timedelta
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import ControlPeriod
-from app.services import auth_service, control_checklist_service, control_record_service
+from app.models import ControlItemStatus, ControlPeriod, ControlRecordStatus
+from app.services import (
+    auth_service,
+    control_checklist_service,
+    control_record_service,
+    control_sheet_service,
+)
+from app.services.control_record_service import ControlRecordSubmittedError
 
 
 async def _signup_owner(db_session: AsyncSession, **overrides: str) -> tuple[uuid.UUID, uuid.UUID]:
@@ -31,6 +37,25 @@ async def _make_checklist(
         )
         items.append(item.id)
     return items
+
+
+async def _make_draft(
+    db_session: AsyncSession, org_id: uuid.UUID, user_id: uuid.UUID, item_id: uuid.UUID
+) -> uuid.UUID:
+    """A draft record (one item checked, not submitted) — the only kind that can be deleted."""
+    sheet = await control_sheet_service.check_item(
+        db_session,
+        organization_id=org_id,
+        period=ControlPeriod.DAILY,
+        item_id=item_id,
+        status=ControlItemStatus.PASS,
+        corrective_action=None,
+        amendment_reason=None,
+        period_date=None,
+        actor_user_id=user_id,
+    )
+    assert sheet.record is not None
+    return sheet.record.id
 
 
 def test_current_period_date_for_daily_and_monthly() -> None:
@@ -219,16 +244,10 @@ async def test_soft_deleted_record_does_not_block_refilling_same_period(
 ) -> None:
     org_id, user_id = await _signup_owner(db_session)
     item_ids = await _make_checklist(db_session, org_id, ControlPeriod.DAILY, ["Q1"])
-    first = await control_record_service.upsert_current_control(
-        db_session,
-        organization_id=org_id,
-        period=ControlPeriod.DAILY,
-        signatory_user_id=user_id,
-        answers={item_ids[0]: True},
-    )
+    first = await _make_draft(db_session, org_id, user_id, item_ids[0])
 
     await control_record_service.soft_delete_control_record(
-        db_session, organization_id=org_id, record_id=first.id
+        db_session, organization_id=org_id, record_id=first
     )
 
     second = await control_record_service.upsert_current_control(
@@ -239,7 +258,7 @@ async def test_soft_deleted_record_does_not_block_refilling_same_period(
         answers={item_ids[0]: True},
     )
 
-    assert second.id != first.id
+    assert second.id != first
 
 
 async def test_list_control_records_orders_newest_first_and_excludes_deleted(
@@ -247,22 +266,16 @@ async def test_list_control_records_orders_newest_first_and_excludes_deleted(
 ) -> None:
     org_id, user_id = await _signup_owner(db_session)
     item_ids = await _make_checklist(db_session, org_id, ControlPeriod.DAILY, ["Q1"])
-    current = await control_record_service.upsert_current_control(
-        db_session,
-        organization_id=org_id,
-        period=ControlPeriod.DAILY,
-        signatory_user_id=user_id,
-        answers={item_ids[0]: True},
-    )
+    current = await _make_draft(db_session, org_id, user_id, item_ids[0])
 
     records = await control_record_service.list_control_records(
         db_session, organization_id=org_id, period=ControlPeriod.DAILY
     )
 
-    assert [r.id for r in records] == [current.id]
+    assert [r.id for r in records] == [current]
 
     await control_record_service.soft_delete_control_record(
-        db_session, organization_id=org_id, record_id=current.id
+        db_session, organization_id=org_id, record_id=current
     )
     records_after_delete = await control_record_service.list_control_records(
         db_session, organization_id=org_id, period=ControlPeriod.DAILY
@@ -415,4 +428,38 @@ async def test_edit_control_record_rejects_checklist_mismatch(db_session: AsyncS
             record_id=record.id,
             edited_by_user_id=user_id,
             answers={item_ids[0]: True},
+        )
+
+
+async def test_upsert_current_control_auto_submits_record(db_session: AsyncSession) -> None:
+    org_id, user_id = await _signup_owner(db_session)
+    item_ids = await _make_checklist(db_session, org_id, ControlPeriod.DAILY, ["Q1"])
+
+    record = await control_record_service.upsert_current_control(
+        db_session,
+        organization_id=org_id,
+        period=ControlPeriod.DAILY,
+        signatory_user_id=user_id,
+        answers={item_ids[0]: True},
+    )
+
+    assert record.status == ControlRecordStatus.SUBMITTED
+    assert record.submitted_by_user_id == user_id
+    assert record.submitted_at is not None
+
+
+async def test_submitted_record_cannot_be_deleted(db_session: AsyncSession) -> None:
+    org_id, user_id = await _signup_owner(db_session)
+    item_ids = await _make_checklist(db_session, org_id, ControlPeriod.DAILY, ["Q1"])
+    record = await control_record_service.upsert_current_control(
+        db_session,
+        organization_id=org_id,
+        period=ControlPeriod.DAILY,
+        signatory_user_id=user_id,
+        answers={item_ids[0]: True},
+    )
+
+    with pytest.raises(ControlRecordSubmittedError):
+        await control_record_service.soft_delete_control_record(
+            db_session, organization_id=org_id, record_id=record.id
         )

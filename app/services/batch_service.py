@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
 from app.models import Batch, BatchAnswer, BatchHistory
+from app.services import organization_service
 from app.services.checklist_validation import ChecklistMismatchError as ChecklistMismatchError
 from app.services.checklist_validation import has_deviation as compute_has_deviation
 from app.services.checklist_validation import validate_answer_ids
@@ -31,7 +32,11 @@ async def _validate_answers(
     active_items = await list_checklist_items(
         db, organization_id=organization_id, product_id=product_id
     )
-    validate_answer_ids(required_ids={item.id for item in active_items}, answers=answers)
+    validate_answer_ids(
+        required_ids={item.id for item in active_items},
+        answers=answers,
+        resource_label="product's",
+    )
 
 
 async def list_batch_answers(db: AsyncSession, *, batch_id: uuid.UUID) -> list[BatchAnswer]:
@@ -63,6 +68,9 @@ def _snapshot(batch: Batch, answers: list[BatchAnswer]) -> dict[str, Any]:
         "has_deviation": batch.has_deviation,
         "deviation_note": batch.deviation_note,
         "corrective_action": batch.corrective_action,
+        "performed_by_user_id": (
+            str(batch.performed_by_user_id) if batch.performed_by_user_id else None
+        ),
         "answers": [
             {"checklist_item_id": str(a.checklist_item_id), "answer": a.answer} for a in answers
         ],
@@ -81,9 +89,16 @@ async def record_batch(
     deviation_note: str | None,
     corrective_action: str | None,
     signatory_user_id: uuid.UUID,
+    performed_by_user_id: uuid.UUID | None = None,
 ) -> Batch:
     await _validate_answers(
         db, organization_id=organization_id, product_id=product_id, answers=answers
+    )
+    performer = await organization_service.resolve_performer(
+        db,
+        organization_id=organization_id,
+        performer_user_id=performed_by_user_id,
+        actor_user_id=signatory_user_id,
     )
     has_deviation = compute_has_deviation(answers)
 
@@ -97,6 +112,7 @@ async def record_batch(
         deviation_note=deviation_note,
         corrective_action=corrective_action,
         signatory_user_id=signatory_user_id,
+        performed_by_user_id=performer,
     )
     db.add(batch)
     await db.flush()

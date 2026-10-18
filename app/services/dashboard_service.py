@@ -7,7 +7,7 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import ControlPeriod
+from app.models import ControlPeriod, ControlRecord, ControlRecordStatus
 from app.services import (
     batch_service,
     control_record_service,
@@ -80,22 +80,20 @@ async def get_dashboard(db: AsyncSession, *, organization_id: uuid.UUID) -> Dash
     )
 
     attention_items: list[AttentionItem] = []
-    if daily_record is None:
-        attention_items.append(
-            AttentionItem(
-                label="Щоденний контроль на сьогодні не заповнено",
-                severity=AttentionSeverity.CRITICAL,
-                days=-1,
-            )
-        )
-    if monthly_record is None:
-        attention_items.append(
-            AttentionItem(
-                label="Місячний контроль за поточний місяць не заповнено",
-                severity=AttentionSeverity.CRITICAL,
-                days=-1,
-            )
-        )
+    daily_item = _unsubmitted_control_item(
+        daily_record,
+        missing="Щоденний контроль на сьогодні не заповнено",
+        draft="Щоденний контроль на сьогодні розпочато, але не подано",
+    )
+    if daily_item is not None:
+        attention_items.append(daily_item)
+    monthly_item = _unsubmitted_control_item(
+        monthly_record,
+        missing="Місячний контроль за поточний місяць не заповнено",
+        draft="Місячний контроль за поточний місяць розпочато, але не подано",
+    )
+    if monthly_item is not None:
+        attention_items.append(monthly_item)
 
     equipment_list = await equipment_service.list_equipment(db, organization_id=organization_id)
     for eq in equipment_list:
@@ -133,14 +131,33 @@ async def get_dashboard(db: AsyncSession, *, organization_id: uuid.UUID) -> Dash
     attention_items.sort(key=lambda item: (_SEVERITY_RANK[item.severity], item.days))
 
     return Dashboard(
-        daily_control=ControlStatus(
-            filled=daily_record is not None,
-            has_deviation=daily_record.has_deviation if daily_record else None,
-        ),
-        monthly_control=ControlStatus(
-            filled=monthly_record is not None,
-            has_deviation=monthly_record.has_deviation if monthly_record else None,
-        ),
+        daily_control=_control_status(daily_record),
+        monthly_control=_control_status(monthly_record),
         batches_this_month=batches_this_month,
         attention_items=attention_items,
+    )
+
+
+def _is_submitted(record: ControlRecord | None) -> bool:
+    return record is not None and record.status is ControlRecordStatus.SUBMITTED
+
+
+def _control_status(record: ControlRecord | None) -> ControlStatus:
+    # Only a submitted sheet counts as filled. A draft still reports its
+    # deviations so a half-done sheet with a problem is visible.
+    return ControlStatus(
+        filled=_is_submitted(record),
+        has_deviation=record.has_deviation if record is not None else None,
+    )
+
+
+def _unsubmitted_control_item(
+    record: ControlRecord | None, *, missing: str, draft: str
+) -> AttentionItem | None:
+    if _is_submitted(record):
+        return None
+    return AttentionItem(
+        label=missing if record is None else draft,
+        severity=AttentionSeverity.CRITICAL,
+        days=-1,
     )

@@ -1,9 +1,10 @@
-from collections.abc import AsyncGenerator
-from pathlib import Path
+from collections.abc import AsyncGenerator, Generator
 
+import boto3
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from moto import mock_aws
 from sqlalchemy.ext.asyncio import (
     AsyncEngine,
     AsyncSession,
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import (
 )
 from testcontainers.postgres import PostgresContainer
 
+from app.core.config import get_settings
 from app.db.base import Base
 from app.db.session import get_db_session
 from app.main import app as fastapi_app
@@ -19,7 +21,7 @@ from app.models import *  # noqa: F401,F403  registers all models on Base.metada
 from app.models.allergen import LEGAL_ALLERGENS, Allergen
 from app.models.event_log_type import EVENT_LOG_TYPES, EventLogType
 from app.services.email_sender import get_email_sender
-from app.services.storage import LocalDiskStorageBackend, get_storage_backend
+from app.services.storage import S3StorageBackend, get_storage_backend
 from tests.fakes import FakeEmailSender
 
 
@@ -75,25 +77,48 @@ def fake_email_sender() -> FakeEmailSender:
     return FakeEmailSender()
 
 
+@pytest.fixture
+def s3_storage() -> Generator[S3StorageBackend]:
+    """S3-backed storage for service-level tests that call attachment_service
+    (or its callers) directly, without going through the HTTP `client`
+    fixture. moto mocks the AWS calls against an in-memory fake."""
+    settings = get_settings()
+    with mock_aws():
+        boto3.client("s3", region_name=settings.aws_region).create_bucket(
+            Bucket=settings.s3_bucket_name,
+            CreateBucketConfiguration={"LocationConstraint": settings.aws_region},
+        )
+        yield S3StorageBackend(bucket_name=settings.s3_bucket_name, region=settings.aws_region)
+
+
 @pytest_asyncio.fixture
 async def client(
-    db_session: AsyncSession, fake_email_sender: FakeEmailSender, tmp_path: Path
+    db_session: AsyncSession, fake_email_sender: FakeEmailSender
 ) -> AsyncGenerator[AsyncClient]:
     """HTTP client for router tests; the app's DB, email, and file-storage
     dependencies are overridden so requests share the same per-test
     transaction as `db_session` (rolled back with it), never touch real
-    email, and never write to the real configured storage_root."""
+    email, and never touch a real S3 bucket (moto mocks AWS calls against
+    an in-memory fake for the duration of the test)."""
 
     async def _override_get_db_session() -> AsyncGenerator[AsyncSession]:
         yield db_session
 
-    test_storage = LocalDiskStorageBackend(tmp_path)
-    fastapi_app.dependency_overrides[get_db_session] = _override_get_db_session
-    fastapi_app.dependency_overrides[get_email_sender] = lambda: fake_email_sender
-    fastapi_app.dependency_overrides[get_storage_backend] = lambda: test_storage
-    transport = ASGITransport(app=fastapi_app)
-    async with AsyncClient(transport=transport, base_url="http://test") as async_client:
-        yield async_client
-    fastapi_app.dependency_overrides.pop(get_db_session, None)
-    fastapi_app.dependency_overrides.pop(get_email_sender, None)
-    fastapi_app.dependency_overrides.pop(get_storage_backend, None)
+    settings = get_settings()
+    with mock_aws():
+        boto3.client("s3", region_name=settings.aws_region).create_bucket(
+            Bucket=settings.s3_bucket_name,
+            CreateBucketConfiguration={"LocationConstraint": settings.aws_region},
+        )
+        test_storage = S3StorageBackend(
+            bucket_name=settings.s3_bucket_name, region=settings.aws_region
+        )
+        fastapi_app.dependency_overrides[get_db_session] = _override_get_db_session
+        fastapi_app.dependency_overrides[get_email_sender] = lambda: fake_email_sender
+        fastapi_app.dependency_overrides[get_storage_backend] = lambda: test_storage
+        transport = ASGITransport(app=fastapi_app)
+        async with AsyncClient(transport=transport, base_url="http://test") as async_client:
+            yield async_client
+        fastapi_app.dependency_overrides.pop(get_db_session, None)
+        fastapi_app.dependency_overrides.pop(get_email_sender, None)
+        fastapi_app.dependency_overrides.pop(get_storage_backend, None)

@@ -3,11 +3,11 @@ import uuid
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, Enum, ForeignKey, String
+from sqlalchemy import DateTime, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
-from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin
+from app.db.base import Base, TimestampMixin, UUIDPrimaryKeyMixin, pg_enum
 from app.models.membership import MembershipRole
 
 if TYPE_CHECKING:
@@ -28,22 +28,11 @@ class Invite(UUIDPrimaryKeyMixin, TimestampMixin, Base):
     )
     email: Mapped[str] = mapped_column(String(320), nullable=False, index=True)
     role: Mapped[MembershipRole] = mapped_column(
-        Enum(
-            MembershipRole,
-            name="membership_role",
-            native_enum=True,
-            values_callable=lambda enum_cls: [member.value for member in enum_cls],
-        ),
-        nullable=False,
+        pg_enum(MembershipRole, "membership_role"), nullable=False
     )
     token_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     status: Mapped[InviteStatus] = mapped_column(
-        Enum(
-            InviteStatus,
-            name="invite_status",
-            native_enum=True,
-            values_callable=lambda enum_cls: [member.value for member in enum_cls],
-        ),
+        pg_enum(InviteStatus, "invite_status"),
         nullable=False,
         default=InviteStatus.PENDING,
     )

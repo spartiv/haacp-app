@@ -7,7 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
-from app.core.errors import NotFoundError
+from app.core.errors import DomainError, NotFoundError
 from app.core.security import hash_password, hash_token
 from app.models import (
     Invite,
@@ -25,12 +25,16 @@ from app.services.organization_service import OrganizationNotFoundError
 logger = logging.getLogger(__name__)
 
 
-class AlreadyMemberError(Exception):
-    pass
+class AlreadyMemberError(DomainError):
+    status_code = 409
+    code = "already_member"
+    message = "This account is already a member of the organization"
 
 
-class InviteAlreadyPendingError(Exception):
-    pass
+class InviteAlreadyPendingError(DomainError):
+    status_code = 409
+    code = "invite_already_pending"
+    message = "An invite is already pending for this email"
 
 
 class InviteNotFoundError(NotFoundError):
@@ -38,20 +42,28 @@ class InviteNotFoundError(NotFoundError):
     message = "Invite not found"
 
 
-class InviteExpiredError(Exception):
-    pass
+class InviteExpiredError(DomainError):
+    status_code = 410
+    code = "invite_expired"
+    message = "This invite has expired"
 
 
-class InviteAlreadyAcceptedError(Exception):
-    pass
+class InviteAlreadyAcceptedError(DomainError):
+    status_code = 410
+    code = "invite_already_accepted"
+    message = "This invite was already used"
 
 
-class AccountExistsRequiresLoginError(Exception):
-    pass
+class AccountExistsRequiresLoginError(DomainError):
+    status_code = 409
+    code = "account_exists_requires_login"
+    message = "An account with this email already exists; log in and retry"
 
 
-class SignupFieldsRequiredError(Exception):
-    pass
+class SignupFieldsRequiredError(DomainError):
+    status_code = 422
+    code = "signup_fields_required"
+    message = "password and full_name are required for a new account"
 
 
 async def create_invite(
@@ -79,7 +91,7 @@ async def create_invite(
         )
     )
     if already_member.scalar_one_or_none() is not None:
-        raise AlreadyMemberError
+        raise AlreadyMemberError("This email already belongs to the organization")
 
     pending_invite = await db.execute(
         select(Invite).where(

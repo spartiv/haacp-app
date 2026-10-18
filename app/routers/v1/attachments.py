@@ -1,5 +1,6 @@
 import uuid
 from typing import Annotated
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, UploadFile, status
 from fastapi.responses import StreamingResponse
@@ -7,7 +8,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.deps import get_current_user, require_membership
-from app.core.errors import AppError
 from app.db.session import get_db_session
 from app.models import Membership, User
 from app.schemas.attachment import AttachmentResponse
@@ -50,22 +50,16 @@ async def upload_attachment(
     storage: Storage,
     _: AnyMember,
 ) -> AttachmentResponse:
-    try:
-        data = await _read_bounded(file, max_size=get_settings().attachment_max_size_bytes)
-        attachment = await attachment_service.upload_attachment(
-            db,
-            organization_id=organization_id,
-            uploaded_by_user_id=current_user.id,
-            filename=file.filename or "upload",
-            content_type=file.content_type or "application/octet-stream",
-            data=data,
-            storage=storage,
-        )
-    except attachment_service.AttachmentTooLargeError as exc:
-        raise AppError(413, "attachment_too_large", "File exceeds the maximum upload size") from exc
-    except attachment_service.UnsupportedContentTypeError as exc:
-        raise AppError(415, "unsupported_content_type", "File type is not supported") from exc
-
+    data = await _read_bounded(file, max_size=get_settings().attachment_max_size_bytes)
+    attachment = await attachment_service.upload_attachment(
+        db,
+        organization_id=organization_id,
+        uploaded_by_user_id=current_user.id,
+        filename=file.filename or "upload",
+        content_type=file.content_type or "application/octet-stream",
+        data=data,
+        storage=storage,
+    )
     return AttachmentResponse.model_validate(attachment)
 
 
@@ -83,5 +77,14 @@ async def download_attachment(
     return StreamingResponse(
         storage.stream(key=attachment.storage_key),
         media_type=attachment.content_type,
-        headers={"Content-Disposition": f'attachment; filename="{attachment.filename}"'},
+        headers={"Content-Disposition": _content_disposition(attachment.filename)},
     )
+
+
+def _content_disposition(filename: str) -> str:
+    """HTTP headers are Latin-1 only, so a Ukrainian filename would crash the
+    response. Send an ASCII fallback plus the exact UTF-8 name (RFC 6266 / 5987),
+    which every current browser prefers."""
+    fallback = filename.encode("ascii", "replace").decode("ascii")
+    fallback = "".join("_" if ch in '"\\\r\n?' else ch for ch in fallback) or "download"
+    return f"attachment; filename=\"{fallback}\"; filename*=UTF-8''{quote(filename, safe='')}"

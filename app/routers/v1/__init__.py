@@ -9,11 +9,15 @@ from app.routers.v1.equipment import router as equipment_router
 from app.routers.v1.event_logs import router as event_logs_router
 from app.routers.v1.health import router as health_router
 from app.routers.v1.invites import router as invites_router
+from app.routers.v1.me import router as me_router
+from app.routers.v1.members import router as members_router
 from app.routers.v1.products import router as products_router
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(health_router)
 api_router.include_router(auth_router)
+api_router.include_router(me_router)
+api_router.include_router(members_router)
 api_router.include_router(invites_router)
 api_router.include_router(products_router)
 api_router.include_router(attachments_router)

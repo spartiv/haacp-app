@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.errors import DomainError
 from app.core.security import (
     InvalidTokenError,
     TokenType,
@@ -30,16 +31,22 @@ from app.services import allergen_service
 logger = logging.getLogger(__name__)
 
 
-class EmailAlreadyRegisteredError(Exception):
-    pass
+class EmailAlreadyRegisteredError(DomainError):
+    status_code = 409
+    code = "email_already_registered"
+    message = "An account with this email already exists"
 
 
-class InvalidCredentialsError(Exception):
-    pass
+class InvalidCredentialsError(DomainError):
+    status_code = 401
+    code = "invalid_credentials"
+    message = "Email or password is incorrect"
 
 
-class InvalidRefreshTokenError(Exception):
-    pass
+class InvalidRefreshTokenError(DomainError):
+    status_code = 401
+    code = "invalid_refresh_token"
+    message = "Refresh token is invalid or expired"
 
 
 @dataclass(frozen=True)
@@ -96,7 +103,7 @@ async def signup(
     normalized_email = normalize_email(email)
     existing = await db.execute(select(User).where(User.email == normalized_email))
     if existing.scalar_one_or_none() is not None:
-        raise EmailAlreadyRegisteredError(normalized_email)
+        raise EmailAlreadyRegisteredError
 
     organization = Organization(name=organization_name, timezone=timezone)
     user = User(

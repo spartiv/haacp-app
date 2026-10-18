@@ -1,11 +1,11 @@
 import enum
 import uuid
 
-from sqlalchemy import Boolean, Enum, ForeignKey, Integer, String
+from sqlalchemy import Boolean, ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
+from app.db.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin, pg_enum
 
 
 class EquipmentType(enum.StrEnum):
@@ -22,13 +22,7 @@ class Equipment(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
     type: Mapped[EquipmentType] = mapped_column(
-        Enum(
-            EquipmentType,
-            name="equipment_type",
-            native_enum=True,
-            values_callable=lambda enum_cls: [member.value for member in enum_cls],
-        ),
-        nullable=False,
+        pg_enum(EquipmentType, "equipment_type"), nullable=False
     )
     name: Mapped[str] = mapped_column(String(200), nullable=False)
     frequency: Mapped[str] = mapped_column(String(200), nullable=False)

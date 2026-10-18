@@ -115,16 +115,13 @@ async def attach_document(
     storage: StorageBackend,
 ) -> Equipment:
     equipment = await get_equipment(db, organization_id=organization_id, equipment_id=equipment_id)
-    # Validate the attachment exists and belongs to this org before linking it.
-    await attachment_service.get_attachment(
-        db, organization_id=organization_id, attachment_id=attachment_id
+    await attachment_service.attach_document_to(
+        db,
+        entity=equipment,
+        organization_id=organization_id,
+        attachment_id=attachment_id,
+        storage=storage,
     )
-    if equipment.attachment_id is not None:
-        old_attachment = await attachment_service.get_attachment(
-            db, organization_id=organization_id, attachment_id=equipment.attachment_id
-        )
-        await attachment_service.delete_attachment(db, attachment=old_attachment, storage=storage)
-    equipment.attachment_id = attachment_id
     await db.commit()
     return equipment
 
@@ -137,10 +134,7 @@ async def detach_document(
     storage: StorageBackend,
 ) -> Equipment:
     equipment = await get_equipment(db, organization_id=organization_id, equipment_id=equipment_id)
-    if equipment.attachment_id is not None:
-        attachment = await attachment_service.get_attachment(
-            db, organization_id=organization_id, attachment_id=equipment.attachment_id
-        )
-        equipment.attachment_id = None
-        await attachment_service.delete_attachment(db, attachment=attachment, storage=storage)
+    await attachment_service.detach_document_from(
+        db, entity=equipment, organization_id=organization_id, storage=storage
+    )
     return equipment

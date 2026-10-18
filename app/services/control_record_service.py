@@ -4,23 +4,40 @@ from datetime import UTC, date, datetime
 from typing import Any
 from zoneinfo import ZoneInfo
 
-from sqlalchemy import select
+from sqlalchemy import exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFoundError
+from app.core.errors import DomainError, NotFoundError
 from app.models import (
     ControlAnswer,
+    ControlItemStatus,
+    ControlItemType,
     ControlPeriod,
     ControlRecord,
     ControlRecordHistory,
+    ControlRecordStatus,
 )
+from app.services import control_audit_service
 from app.services.checklist_validation import ChecklistMismatchError as ChecklistMismatchError
-from app.services.checklist_validation import has_deviation as compute_has_deviation
 from app.services.checklist_validation import validate_answer_ids
 from app.services.control_checklist_service import list_control_checklist_items
 from app.services.organization_service import get_organization_timezone
 
 logger = logging.getLogger(__name__)
+
+# The legacy full-sheet endpoints (PUT .../current, PATCH .../control-records/{id})
+# can't send a per-item reason, so post-submit changes made through them are
+# logged with this fixed reason instead.
+LEGACY_AMENDMENT_REASON = "Changed via full-sheet endpoint (legacy client, no reason given)"
+
+
+class NumericItemsNotSupportedError(DomainError):
+    status_code = 422
+    code = "numeric_items_not_supported"
+    message = (
+        "This checklist has measured items (e.g. temperatures). Fill it item by item "
+        "via POST /controls/{period}/items/{item_id}/check"
+    )
 
 
 class ControlRecordNotFoundError(NotFoundError):
@@ -28,9 +45,19 @@ class ControlRecordNotFoundError(NotFoundError):
     message = "Control record not found"
 
 
-class FuturePeriodDateError(Exception):
+class FuturePeriodDateError(DomainError):
     """Raised when a control record is submitted for a date/month that
     hasn't happened yet in the organization's own timezone."""
+
+    status_code = 422
+    code = "future_period_date"
+    message = "Cannot record a control for a future date"
+
+
+class ControlRecordSubmittedError(DomainError):
+    status_code = 409
+    code = "control_record_submitted"
+    message = "Submitted control records cannot be deleted"
 
 
 def normalize_period_date(period: ControlPeriod, requested_date: date) -> date:
@@ -50,6 +77,25 @@ def current_period_date(period: ControlPeriod, org_timezone: str) -> date:
     return normalize_period_date(period, now_local.date())
 
 
+async def resolve_period_date(
+    db: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    period: ControlPeriod,
+    requested_date: date | None,
+) -> date:
+    """The requested day/month (default: current one in the org's timezone),
+    normalized for the period. Future periods are rejected."""
+    org_timezone = await get_organization_timezone(db, organization_id)
+    today_period_date = current_period_date(period, org_timezone)
+    if requested_date is None:
+        return today_period_date
+    resolved = normalize_period_date(period, requested_date)
+    if resolved > today_period_date:
+        raise FuturePeriodDateError
+    return resolved
+
+
 async def _validate_answers(
     db: AsyncSession,
     *,
@@ -60,7 +106,15 @@ async def _validate_answers(
     active_items = await list_control_checklist_items(
         db, organization_id=organization_id, period=period
     )
-    validate_answer_ids(required_ids={item.id for item in active_items}, answers=answers)
+    # The full-sheet format only carries Yes/No answers. Recording "OK" for a
+    # temperature without the reading would defeat the point, so refuse.
+    if any(item.item_type == ControlItemType.NUMERIC for item in active_items):
+        raise NumericItemsNotSupportedError
+    validate_answer_ids(
+        required_ids={item.id for item in active_items},
+        answers=answers,
+        resource_label="organization's",
+    )
 
 
 async def list_control_answers(
@@ -90,6 +144,20 @@ async def list_control_answers_by_record_ids(
     return answers_by_record_id
 
 
+async def refresh_has_deviation(db: AsyncSession, *, record: ControlRecord) -> None:
+    """has_deviation = any answer on the record is a deviation."""
+    await db.flush()
+    result = await db.execute(
+        select(
+            exists().where(
+                ControlAnswer.control_record_id == record.id,
+                ControlAnswer.answer.is_(False),
+            )
+        )
+    )
+    record.has_deviation = bool(result.scalar_one())
+
+
 def _snapshot(record: ControlRecord, answers: list[ControlAnswer]) -> dict[str, Any]:
     return {
         "period_date": record.period_date.isoformat(),
@@ -102,34 +170,72 @@ def _snapshot(record: ControlRecord, answers: list[ControlAnswer]) -> dict[str, 
     }
 
 
-async def _snapshot_and_replace_answers(
+async def _apply_full_sheet_answers(
     db: AsyncSession,
     *,
     record: ControlRecord,
-    edited_by_user_id: uuid.UUID,
+    actor_user_id: uuid.UUID,
     answers: dict[uuid.UUID, bool],
+    snapshot_first: bool,
 ) -> None:
+    """Legacy full-sheet write: sets every item at once, then auto-submits.
+
+    Answers are updated in place (not deleted and re-created) so that
+    unchanged items keep their corrective action and who/when checked them.
+    Each actual change is appended to the audit log. Corrective actions are
+    not required here (backward compatibility with the mobile app)."""
     current_answers = await list_control_answers(db, control_record_id=record.id)
-    db.add(
-        ControlRecordHistory(
-            control_record_id=record.id,
-            snapshot=_snapshot(record, current_answers),
-            edited_by_user_id=edited_by_user_id,
-        )
-    )
-    for existing_answer in current_answers:
-        await db.delete(existing_answer)
-    await db.flush()
-    for item_id, answer in answers.items():
+    if snapshot_first:
         db.add(
-            ControlAnswer(
-                control_record_id=record.id, control_checklist_item_id=item_id, answer=answer
+            ControlRecordHistory(
+                control_record_id=record.id,
+                snapshot=_snapshot(record, current_answers),
+                edited_by_user_id=actor_user_id,
             )
         )
-    record.has_deviation = compute_has_deviation(answers)
+
+    current_by_item = {a.control_checklist_item_id: a for a in current_answers}
+    now = datetime.now(UTC)
+    for item_id, value in answers.items():
+        existing = current_by_item.get(item_id)
+        previous_status = control_audit_service.answer_status(existing)
+        new_status = ControlItemStatus.PASS if value else ControlItemStatus.DEVIATION
+        if previous_status == new_status:
+            continue
+        if existing is None:
+            db.add(
+                ControlAnswer(
+                    control_record_id=record.id,
+                    control_checklist_item_id=item_id,
+                    answer=value,
+                    checked_by_user_id=actor_user_id,
+                    performed_by_user_id=actor_user_id,
+                    checked_at=now,
+                )
+            )
+        else:
+            existing.answer = value
+            existing.corrective_action = None
+            existing.checked_by_user_id = actor_user_id
+            existing.performed_by_user_id = actor_user_id
+            existing.checked_at = now
+        control_audit_service.append_item_event(
+            db,
+            record=record,
+            actor_user_id=actor_user_id,
+            item_id=item_id,
+            previous_status=previous_status,
+            new_status=new_status,
+            corrective_action=None,
+            amendment_reason=LEGACY_AMENDMENT_REASON,
+        )
+
+    await refresh_has_deviation(db, record=record)
+    if record.status == ControlRecordStatus.DRAFT:
+        control_audit_service.submit_record(db, record=record, actor_user_id=actor_user_id)
 
 
-async def _get_live_record(
+async def get_live_record(
     db: AsyncSession, *, organization_id: uuid.UUID, period: ControlPeriod, period_date: date
 ) -> ControlRecord | None:
     result = await db.execute(
@@ -146,9 +252,10 @@ async def _get_live_record(
 async def get_current_control(
     db: AsyncSession, *, organization_id: uuid.UUID, period: ControlPeriod
 ) -> ControlRecord | None:
-    org_timezone = await get_organization_timezone(db, organization_id)
-    period_date = current_period_date(period, org_timezone)
-    return await _get_live_record(
+    period_date = await resolve_period_date(
+        db, organization_id=organization_id, period=period, requested_date=None
+    )
+    return await get_live_record(
         db, organization_id=organization_id, period=period, period_date=period_date
     )
 
@@ -163,21 +270,21 @@ async def upsert_current_control(
     period_date: date | None = None,
     note: str | None = None,
 ) -> ControlRecord:
-    org_timezone = await get_organization_timezone(db, organization_id)
-    today_period_date = current_period_date(period, org_timezone)
-    resolved_period_date = (
-        normalize_period_date(period, period_date) if period_date is not None else today_period_date
+    resolved_period_date = await resolve_period_date(
+        db, organization_id=organization_id, period=period, requested_date=period_date
     )
-    if resolved_period_date > today_period_date:
-        raise FuturePeriodDateError
     await _validate_answers(db, organization_id=organization_id, period=period, answers=answers)
 
-    existing = await _get_live_record(
+    existing = await get_live_record(
         db, organization_id=organization_id, period=period, period_date=resolved_period_date
     )
     if existing is not None:
-        await _snapshot_and_replace_answers(
-            db, record=existing, edited_by_user_id=signatory_user_id, answers=answers
+        await _apply_full_sheet_answers(
+            db,
+            record=existing,
+            actor_user_id=signatory_user_id,
+            answers=answers,
+            snapshot_first=True,
         )
         existing.signatory_user_id = signatory_user_id
         existing.note = note
@@ -190,23 +297,20 @@ async def upsert_current_control(
         )
         return existing
 
-    has_deviation = compute_has_deviation(answers)
     record = ControlRecord(
         organization_id=organization_id,
         period=period,
         period_date=resolved_period_date,
         signatory_user_id=signatory_user_id,
-        has_deviation=has_deviation,
+        has_deviation=False,
+        status=ControlRecordStatus.DRAFT,
         note=note,
     )
     db.add(record)
     await db.flush()
-    for item_id, answer in answers.items():
-        db.add(
-            ControlAnswer(
-                control_record_id=record.id, control_checklist_item_id=item_id, answer=answer
-            )
-        )
+    await _apply_full_sheet_answers(
+        db, record=record, actor_user_id=signatory_user_id, answers=answers, snapshot_first=False
+    )
     await db.commit()
     logger.info(
         "Control record created: record_id=%s period=%s period_date=%s",
@@ -233,15 +337,20 @@ async def list_control_records(
 
 
 async def get_control_record(
-    db: AsyncSession, *, organization_id: uuid.UUID, record_id: uuid.UUID
+    db: AsyncSession,
+    *,
+    organization_id: uuid.UUID,
+    record_id: uuid.UUID,
+    for_update: bool = False,
 ) -> ControlRecord:
-    result = await db.execute(
-        select(ControlRecord).where(
-            ControlRecord.id == record_id,
-            ControlRecord.organization_id == organization_id,
-            ControlRecord.deleted_at.is_(None),
-        )
+    query = select(ControlRecord).where(
+        ControlRecord.id == record_id,
+        ControlRecord.organization_id == organization_id,
+        ControlRecord.deleted_at.is_(None),
     )
+    if for_update:
+        query = query.with_for_update().execution_options(populate_existing=True)
+    result = await db.execute(query)
     record = result.scalar_one_or_none()
     if record is None:
         raise ControlRecordNotFoundError
@@ -261,8 +370,8 @@ async def edit_control_record(
     await _validate_answers(
         db, organization_id=organization_id, period=record.period, answers=answers
     )
-    await _snapshot_and_replace_answers(
-        db, record=record, edited_by_user_id=edited_by_user_id, answers=answers
+    await _apply_full_sheet_answers(
+        db, record=record, actor_user_id=edited_by_user_id, answers=answers, snapshot_first=True
     )
     if note is not None:
         record.note = note
@@ -276,7 +385,11 @@ async def edit_control_record(
 async def soft_delete_control_record(
     db: AsyncSession, *, organization_id: uuid.UUID, record_id: uuid.UUID
 ) -> None:
+    """Only drafts can be deleted; submitted records are part of the
+    compliance trail and can only be amended."""
     record = await get_control_record(db, organization_id=organization_id, record_id=record_id)
+    if record.status == ControlRecordStatus.SUBMITTED:
+        raise ControlRecordSubmittedError
     record.deleted_at = datetime.now(UTC)
     await db.commit()
     logger.info(

@@ -1,12 +1,22 @@
+import enum
 import uuid
-from datetime import date
+from datetime import date, datetime
 
-from sqlalchemy import Boolean, Date, Enum, ForeignKey, Index, Text, text
+from sqlalchemy import Boolean, Date, DateTime, ForeignKey, Index, Text, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from app.db.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin
+from app.db.base import Base, SoftDeleteMixin, TimestampMixin, UUIDPrimaryKeyMixin, pg_enum
 from app.models.control_checklist_item import ControlPeriod
+
+
+class ControlRecordStatus(enum.StrEnum):
+    """`draft` while items are being checked one by one; `submitted` once
+    finalized. After submission, item changes are amendments that require a
+    reason and are logged as `item_amended`."""
+
+    DRAFT = "draft"
+    SUBMITTED = "submitted"
 
 
 class ControlRecord(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
@@ -32,13 +42,7 @@ class ControlRecord(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
         UUID(as_uuid=True), ForeignKey("organizations.id", ondelete="CASCADE"), nullable=False
     )
     period: Mapped[ControlPeriod] = mapped_column(
-        Enum(
-            ControlPeriod,
-            name="control_period",
-            native_enum=True,
-            values_callable=lambda enum_cls: [member.value for member in enum_cls],
-        ),
-        nullable=False,
+        pg_enum(ControlPeriod, "control_period"), nullable=False
     )
     period_date: Mapped[date] = mapped_column(Date, nullable=False)
     signatory_user_id: Mapped[uuid.UUID] = mapped_column(
@@ -46,3 +50,12 @@ class ControlRecord(UUIDPrimaryKeyMixin, TimestampMixin, SoftDeleteMixin, Base):
     )
     has_deviation: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[ControlRecordStatus] = mapped_column(
+        pg_enum(ControlRecordStatus, "control_record_status"),
+        nullable=False,
+        default=ControlRecordStatus.DRAFT,
+    )
+    submitted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    submitted_by_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
+    )

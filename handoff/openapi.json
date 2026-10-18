@@ -187,6 +187,90 @@
         }
       }
     },
+    "/api/v1/me/organizations": {
+      "get": {
+        "tags": [
+          "me"
+        ],
+        "summary": "List My Organizations",
+        "description": "Organizations the caller is an active member of, sorted by name.\nClients call this after login to pick the active organization.",
+        "operationId": "list_my_organizations_api_v1_me_organizations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/MyOrganizationResponse"
+                  },
+                  "type": "array",
+                  "title": "Response List My Organizations Api V1 Me Organizations Get"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/api/v1/organizations/{organization_id}/members": {
+      "get": {
+        "tags": [
+          "members"
+        ],
+        "summary": "List Members",
+        "description": "The team: active members first, then removed ones (kept so past records\ncan still show who did the work). Use the active ones for \"performed by\"\npickers on shared devices.",
+        "operationId": "list_members_api_v1_organizations__organization_id__members_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/MemberResponse"
+                  },
+                  "title": "Response List Members Api V1 Organizations  Organization Id  Members Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/organizations/{organization_id}/invites": {
       "post": {
         "tags": [
@@ -3528,6 +3612,303 @@
         }
       }
     },
+    "/api/v1/organizations/{organization_id}/controls/{period}/sheet": {
+      "get": {
+        "tags": [
+          "controls"
+        ],
+        "summary": "Get Control Sheet",
+        "operationId": "get_control_sheet_api_v1_organizations__organization_id__controls__period__sheet_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          },
+          {
+            "name": "period",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ControlPeriod"
+            }
+          },
+          {
+            "name": "date",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "format": "date"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "YYYY-MM-DD. Defaults to the current period.",
+              "title": "Date"
+            },
+            "description": "YYYY-MM-DD. Defaults to the current period."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlSheetResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{organization_id}/controls/{period}/items/{item_id}/check": {
+      "post": {
+        "tags": [
+          "controls"
+        ],
+        "summary": "Check Control Item",
+        "operationId": "check_control_item_api_v1_organizations__organization_id__controls__period__items__item_id__check_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          },
+          {
+            "name": "period",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "$ref": "#/components/schemas/ControlPeriod"
+            }
+          },
+          {
+            "name": "item_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Item Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ItemCheckRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlSheetResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{organization_id}/control-records/{record_id}/submit": {
+      "post": {
+        "tags": [
+          "controls"
+        ],
+        "summary": "Submit Control Record",
+        "operationId": "submit_control_record_api_v1_organizations__organization_id__control_records__record_id__submit_post",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          },
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Record Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ControlSheetResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{organization_id}/control-records/{record_id}/audit-events": {
+      "get": {
+        "tags": [
+          "controls"
+        ],
+        "summary": "List Control Audit Events",
+        "operationId": "list_control_audit_events_api_v1_organizations__organization_id__control_records__record_id__audit_events_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          },
+          {
+            "name": "record_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Record Id"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "`next_cursor` from the previous page",
+              "title": "Cursor"
+            },
+            "description": "`next_cursor` from the previous page"
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 200,
+              "minimum": 1,
+              "default": 50,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AuditEventPageResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/organizations/{organization_id}/dashboard": {
       "get": {
         "tags": [
@@ -3559,6 +3940,54 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/DashboardResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/organizations/{organization_id}/setup-progress": {
+      "get": {
+        "tags": [
+          "dashboard"
+        ],
+        "summary": "Get Setup Progress",
+        "operationId": "get_setup_progress_api_v1_organizations__organization_id__setup_progress_get",
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ],
+        "parameters": [
+          {
+            "name": "organization_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Organization Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SetupProgressResponse"
                 }
               }
             }
@@ -3699,6 +4128,168 @@
         ],
         "title": "AttentionItemResponse"
       },
+      "AuditEventPageResponse": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/AuditEventResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Pass as `cursor` to get the next (older) page. Null on the last page."
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor"
+        ],
+        "title": "AuditEventPageResponse"
+      },
+      "AuditEventResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "seq": {
+            "type": "integer",
+            "title": "Seq"
+          },
+          "event_type": {
+            "$ref": "#/components/schemas/ControlAuditEventType"
+          },
+          "control_checklist_item_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Control Checklist Item Id"
+          },
+          "item_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Label"
+          },
+          "item_unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Item Unit"
+          },
+          "numeric_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numeric Value",
+            "description": "Numeric items: the reading recorded."
+          },
+          "previous_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ControlItemStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "new_status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ControlItemStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "corrective_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corrective Action"
+          },
+          "amendment_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amendment Reason"
+          },
+          "actor": {
+            "$ref": "#/components/schemas/UserRefResponse"
+          },
+          "performed_by": {
+            "$ref": "#/components/schemas/UserRefResponse"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "seq",
+          "event_type",
+          "control_checklist_item_id",
+          "item_label",
+          "item_unit",
+          "numeric_value",
+          "previous_status",
+          "new_status",
+          "corrective_action",
+          "amendment_reason",
+          "actor",
+          "performed_by",
+          "created_at"
+        ],
+        "title": "AuditEventResponse"
+      },
       "AuthResponse": {
         "properties": {
           "user": {
@@ -3818,6 +4409,19 @@
               }
             ],
             "title": "Corrective Action"
+          },
+          "performed_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Performed By User Id",
+            "description": "Who physically made / checked the batch, on a shared device. Must be an active member. Defaults to the signed-in user (always recorded as signatory)."
           }
         },
         "type": "object",
@@ -3923,7 +4527,14 @@
           "signatory_user_id": {
             "type": "string",
             "format": "uuid",
-            "title": "Signatory User Id"
+            "title": "Signatory User Id",
+            "description": "The signed-in account that saved it."
+          },
+          "performed_by_user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Performed By User Id",
+            "description": "Who physically did it."
           },
           "answers": {
             "items": {
@@ -3944,6 +4555,7 @@
           "deviation_note",
           "corrective_action",
           "signatory_user_id",
+          "performed_by_user_id",
           "answers"
         ],
         "title": "BatchResponse"
@@ -4227,6 +4839,17 @@
           "answer": {
             "type": "boolean",
             "title": "Answer"
+          },
+          "numeric_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Numeric Value"
           }
         },
         "type": "object",
@@ -4236,6 +4859,15 @@
         ],
         "title": "ControlAnswerResponse"
       },
+      "ControlAuditEventType": {
+        "type": "string",
+        "enum": [
+          "item_checked",
+          "item_amended",
+          "record_submitted"
+        ],
+        "title": "ControlAuditEventType"
+      },
       "ControlChecklistItemCreateRequest": {
         "properties": {
           "label": {
@@ -4243,6 +4875,56 @@
             "maxLength": 500,
             "minLength": 1,
             "title": "Label"
+          },
+          "item_type": {
+            "$ref": "#/components/schemas/ControlItemType",
+            "description": "`bool`: Так/Ні, «Ні» is the deviation. `numeric`: a measured value, outside [min_value, max_value] is the deviation. Fixed after creation.",
+            "default": "bool"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit",
+            "description": "Numeric items only, required (e.g. `°C`)."
+          },
+          "min_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,5}|(?=[\\d.]{1,8}0*$)\\d{0,5}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Value",
+            "description": "Numeric items: lowest safe value (inclusive)."
+          },
+          "max_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,5}|(?=[\\d.]{1,8}0*$)\\d{0,5}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Value",
+            "description": "Numeric items: highest safe value (inclusive)."
           }
         },
         "type": "object",
@@ -4268,6 +4950,42 @@
           "position": {
             "type": "integer",
             "title": "Position"
+          },
+          "item_type": {
+            "$ref": "#/components/schemas/ControlItemType"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "min_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Value"
+          },
+          "max_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Value"
           }
         },
         "type": "object",
@@ -4275,24 +4993,92 @@
           "id",
           "period",
           "label",
-          "position"
+          "position",
+          "item_type",
+          "unit",
+          "min_value",
+          "max_value"
         ],
         "title": "ControlChecklistItemResponse"
       },
       "ControlChecklistItemUpdateRequest": {
         "properties": {
           "label": {
-            "type": "string",
-            "maxLength": 500,
-            "minLength": 1,
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 500,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
             "title": "Label"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 20
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "min_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,5}|(?=[\\d.]{1,8}0*$)\\d{0,5}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Value"
+          },
+          "max_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,5}|(?=[\\d.]{1,8}0*$)\\d{0,5}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Value"
           }
         },
         "type": "object",
-        "required": [
-          "label"
+        "title": "ControlChecklistItemUpdateRequest",
+        "description": "Partial update. Send only what changes; send `null` to open a bound.\nThe item type cannot change."
+      },
+      "ControlItemStatus": {
+        "type": "string",
+        "enum": [
+          "pending",
+          "pass",
+          "deviation"
         ],
-        "title": "ControlChecklistItemUpdateRequest"
+        "title": "ControlItemStatus"
+      },
+      "ControlItemType": {
+        "type": "string",
+        "enum": [
+          "bool",
+          "numeric"
+        ],
+        "title": "ControlItemType"
       },
       "ControlPeriod": {
         "type": "string",
@@ -4391,6 +5177,15 @@
         ],
         "title": "ControlRecordResponse"
       },
+      "ControlRecordStatus": {
+        "type": "string",
+        "enum": [
+          "draft",
+          "submitted"
+        ],
+        "title": "ControlRecordStatus",
+        "description": "`draft` while items are being checked one by one; `submitted` once\nfinalized. After submission, item changes are amendments that require a\nreason and are logged as `item_amended`."
+      },
       "ControlRecordUpsertRequest": {
         "properties": {
           "answers": {
@@ -4430,6 +5225,98 @@
           "answers"
         ],
         "title": "ControlRecordUpsertRequest"
+      },
+      "ControlSheetResponse": {
+        "properties": {
+          "record_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Record Id",
+            "description": "Null until the first item is checked."
+          },
+          "period": {
+            "$ref": "#/components/schemas/ControlPeriod"
+          },
+          "period_date": {
+            "type": "string",
+            "format": "date",
+            "title": "Period Date"
+          },
+          "status": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ControlRecordStatus"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "has_deviation": {
+            "type": "boolean",
+            "title": "Has Deviation"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "submitted_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Submitted At"
+          },
+          "submitted_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserRefResponse"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SheetItemResponse"
+            },
+            "type": "array",
+            "title": "Items"
+          }
+        },
+        "type": "object",
+        "required": [
+          "record_id",
+          "period",
+          "period_date",
+          "status",
+          "has_deviation",
+          "note",
+          "submitted_at",
+          "submitted_by",
+          "items"
+        ],
+        "title": "ControlSheetResponse"
       },
       "ControlStatusResponse": {
         "properties": {
@@ -4667,6 +5554,19 @@
             },
             "type": "object",
             "title": "Payload"
+          },
+          "performed_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Performed By User Id",
+            "description": "Who physically did it, on a shared device. Must be an active member. Defaults to the signed-in user (always recorded as `responsible_user_id`)."
           }
         },
         "type": "object",
@@ -4696,7 +5596,14 @@
           "responsible_user_id": {
             "type": "string",
             "format": "uuid",
-            "title": "Responsible User Id"
+            "title": "Responsible User Id",
+            "description": "The signed-in account that saved it."
+          },
+          "performed_by_user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Performed By User Id",
+            "description": "Who physically did it."
           },
           "payload": {
             "additionalProperties": {
@@ -4716,6 +5623,7 @@
           "event_log_type_id",
           "entry_date",
           "responsible_user_id",
+          "performed_by_user_id",
           "payload",
           "has_deviation"
         ],
@@ -4894,6 +5802,96 @@
         ],
         "title": "InviteResponse"
       },
+      "ItemCheckRequest": {
+        "properties": {
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "pass",
+                  "deviation"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "Required for Yes/No items. Ignored for numeric items: the server judges `value` against the item's range."
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*(?:\\d{0,5}|(?=[\\d.]{1,8}0*$)\\d{0,5}\\.\\d{0,2}0*$)"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value",
+            "description": "Required for numeric items (the measured reading); not allowed for Yes/No items. Outside the range = `deviation`, which needs a corrective action."
+          },
+          "corrective_action": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corrective Action",
+            "description": "Required (min 3 characters) when status is `deviation`; ignored for `pass`."
+          },
+          "amendment_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 1000
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amendment Reason",
+            "description": "Required (min 3 characters) when the record is already submitted."
+          },
+          "performed_by_user_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Performed By User Id",
+            "description": "Who physically did the check, on a shared device. Must be an active member. Defaults to the signed-in user, who is always recorded as well."
+          },
+          "period_date": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Period Date",
+            "description": "Day (or any day within the month) to check. Defaults to the current period in the organization's timezone. Cannot be in the future."
+          }
+        },
+        "type": "object",
+        "title": "ItemCheckRequest"
+      },
       "JSONValue-Input": {
         "anyOf": [
           {
@@ -5071,6 +6069,45 @@
         "type": "object",
         "title": "MedicalCheckUpdateRequest"
       },
+      "MemberResponse": {
+        "properties": {
+          "user_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "User Id"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          },
+          "role": {
+            "$ref": "#/components/schemas/MembershipRole"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          },
+          "status": {
+            "$ref": "#/components/schemas/MembershipStatus"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user_id",
+          "full_name",
+          "role",
+          "title",
+          "status"
+        ],
+        "title": "MemberResponse"
+      },
       "MembershipRole": {
         "type": "string",
         "enum": [
@@ -5079,6 +6116,50 @@
           "staff"
         ],
         "title": "MembershipRole"
+      },
+      "MembershipStatus": {
+        "type": "string",
+        "enum": [
+          "active",
+          "removed"
+        ],
+        "title": "MembershipStatus"
+      },
+      "MyOrganizationResponse": {
+        "properties": {
+          "organization_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Organization Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "role": {
+            "type": "string",
+            "title": "Role"
+          },
+          "title": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "organization_id",
+          "name",
+          "role",
+          "title"
+        ],
+        "title": "MyOrganizationResponse"
       },
       "ProductCreateRequest": {
         "properties": {
@@ -5132,6 +6213,191 @@
           "refresh_token"
         ],
         "title": "RefreshRequest"
+      },
+      "SetupProgressResponse": {
+        "properties": {
+          "completed": {
+            "type": "integer",
+            "title": "Completed"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "steps": {
+            "items": {
+              "$ref": "#/components/schemas/SetupStepResponse"
+            },
+            "type": "array",
+            "title": "Steps"
+          }
+        },
+        "type": "object",
+        "required": [
+          "completed",
+          "total",
+          "steps"
+        ],
+        "title": "SetupProgressResponse"
+      },
+      "SetupStepResponse": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "done": {
+            "type": "boolean",
+            "title": "Done"
+          },
+          "count": {
+            "type": "integer",
+            "title": "Count"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "label",
+          "done",
+          "count"
+        ],
+        "title": "SetupStepResponse"
+      },
+      "SheetItemResponse": {
+        "properties": {
+          "control_checklist_item_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Control Checklist Item Id"
+          },
+          "label": {
+            "type": "string",
+            "title": "Label"
+          },
+          "position": {
+            "type": "integer",
+            "title": "Position"
+          },
+          "item_type": {
+            "$ref": "#/components/schemas/ControlItemType"
+          },
+          "unit": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit"
+          },
+          "min_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Min Value",
+            "description": "Numeric items: the limits the current value was judged against (the item's current limits until it is first measured)."
+          },
+          "max_value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Value"
+          },
+          "value": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Value",
+            "description": "Numeric items: the recorded reading."
+          },
+          "status": {
+            "$ref": "#/components/schemas/ControlItemStatus"
+          },
+          "corrective_action": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Corrective Action"
+          },
+          "checked_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserRefResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The signed-in account that saved it."
+          },
+          "performed_by": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/UserRefResponse"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Who physically did the check."
+          },
+          "checked_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Checked At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "control_checklist_item_id",
+          "label",
+          "position",
+          "item_type",
+          "unit",
+          "min_value",
+          "max_value",
+          "value",
+          "status",
+          "corrective_action",
+          "checked_by",
+          "performed_by",
+          "checked_at"
+        ],
+        "title": "SheetItemResponse"
       },
       "SignupRequest": {
         "properties": {
@@ -5195,6 +6461,25 @@
           "refresh_token"
         ],
         "title": "TokenResponse"
+      },
+      "UserRefResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "full_name": {
+            "type": "string",
+            "title": "Full Name"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "full_name"
+        ],
+        "title": "UserRefResponse"
       },
       "UserResponse": {
         "properties": {

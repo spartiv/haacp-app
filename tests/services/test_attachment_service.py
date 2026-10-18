@@ -1,12 +1,11 @@
 import uuid
-from pathlib import Path
 
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.services import attachment_service, auth_service
-from app.services.storage import LocalDiskStorageBackend
+from app.services.storage import S3StorageBackend
 
 
 async def _signup_owner(db_session: AsyncSession) -> tuple[uuid.UUID, uuid.UUID]:
@@ -21,9 +20,10 @@ async def _signup_owner(db_session: AsyncSession) -> tuple[uuid.UUID, uuid.UUID]
     return result.organization_id, result.user.id
 
 
-async def test_upload_then_download_roundtrips(db_session: AsyncSession, tmp_path: Path) -> None:
+async def test_upload_then_download_roundtrips(
+    db_session: AsyncSession, s3_storage: S3StorageBackend
+) -> None:
     org_id, user_id = await _signup_owner(db_session)
-    storage = LocalDiskStorageBackend(tmp_path)
 
     attachment = await attachment_service.upload_attachment(
         db_session,
@@ -32,19 +32,20 @@ async def test_upload_then_download_roundtrips(db_session: AsyncSession, tmp_pat
         filename="passport.pdf",
         content_type="application/pdf",
         data=b"%PDF-1.4 fake",
-        storage=storage,
+        storage=s3_storage,
     )
 
     fetched, data = await attachment_service.download_attachment(
-        db_session, organization_id=org_id, attachment_id=attachment.id, storage=storage
+        db_session, organization_id=org_id, attachment_id=attachment.id, storage=s3_storage
     )
     assert data == b"%PDF-1.4 fake"
     assert fetched.filename == "passport.pdf"
 
 
-async def test_upload_rejects_oversized_file(db_session: AsyncSession, tmp_path: Path) -> None:
+async def test_upload_rejects_oversized_file(
+    db_session: AsyncSession, s3_storage: S3StorageBackend
+) -> None:
     org_id, user_id = await _signup_owner(db_session)
-    storage = LocalDiskStorageBackend(tmp_path)
     oversized = b"x" * (get_settings().attachment_max_size_bytes + 1)
 
     with pytest.raises(attachment_service.AttachmentTooLargeError):
@@ -55,15 +56,14 @@ async def test_upload_rejects_oversized_file(db_session: AsyncSession, tmp_path:
             filename="huge.pdf",
             content_type="application/pdf",
             data=oversized,
-            storage=storage,
+            storage=s3_storage,
         )
 
 
 async def test_upload_rejects_unsupported_content_type(
-    db_session: AsyncSession, tmp_path: Path
+    db_session: AsyncSession, s3_storage: S3StorageBackend
 ) -> None:
     org_id, user_id = await _signup_owner(db_session)
-    storage = LocalDiskStorageBackend(tmp_path)
 
     with pytest.raises(attachment_service.UnsupportedContentTypeError):
         await attachment_service.upload_attachment(
@@ -73,16 +73,15 @@ async def test_upload_rejects_unsupported_content_type(
             filename="script.exe",
             content_type="application/x-msdownload",
             data=b"MZ",
-            storage=storage,
+            storage=s3_storage,
         )
 
 
 async def test_get_attachment_not_found_in_other_org(
-    db_session: AsyncSession, tmp_path: Path
+    db_session: AsyncSession, s3_storage: S3StorageBackend
 ) -> None:
     org_a, user_id = await _signup_owner(db_session)
     org_b, _ = await _signup_owner(db_session)
-    storage = LocalDiskStorageBackend(tmp_path)
     attachment = await attachment_service.upload_attachment(
         db_session,
         organization_id=org_a,
@@ -90,7 +89,7 @@ async def test_get_attachment_not_found_in_other_org(
         filename="doc.pdf",
         content_type="application/pdf",
         data=b"data",
-        storage=storage,
+        storage=s3_storage,
     )
 
     with pytest.raises(attachment_service.AttachmentNotFoundError):
@@ -100,10 +99,9 @@ async def test_get_attachment_not_found_in_other_org(
 
 
 async def test_delete_attachment_removes_row_and_bytes(
-    db_session: AsyncSession, tmp_path: Path
+    db_session: AsyncSession, s3_storage: S3StorageBackend
 ) -> None:
     org_id, user_id = await _signup_owner(db_session)
-    storage = LocalDiskStorageBackend(tmp_path)
     attachment = await attachment_service.upload_attachment(
         db_session,
         organization_id=org_id,
@@ -111,14 +109,16 @@ async def test_delete_attachment_removes_row_and_bytes(
         filename="doc.pdf",
         content_type="application/pdf",
         data=b"data",
-        storage=storage,
+        storage=s3_storage,
     )
 
-    await attachment_service.delete_attachment(db_session, attachment=attachment, storage=storage)
+    await attachment_service.delete_attachment(
+        db_session, attachment=attachment, storage=s3_storage
+    )
 
     with pytest.raises(attachment_service.AttachmentNotFoundError):
         await attachment_service.get_attachment(
             db_session, organization_id=org_id, attachment_id=attachment.id
         )
     with pytest.raises(FileNotFoundError):
-        await storage.load(key=attachment.storage_key)
+        await s3_storage.load(key=attachment.storage_key)

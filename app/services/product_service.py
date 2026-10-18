@@ -82,7 +82,6 @@ async def list_checklist_items(
 async def add_checklist_item(
     db: AsyncSession, *, organization_id: uuid.UUID, product_id: uuid.UUID, label: str
 ) -> ChecklistItem:
-    await get_product(db, organization_id=organization_id, product_id=product_id)
     existing = await list_checklist_items(
         db, organization_id=organization_id, product_id=product_id
     )

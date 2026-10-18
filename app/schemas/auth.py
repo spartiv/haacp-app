@@ -43,5 +43,5 @@ class AuthResponse(BaseModel):
     tokens: TokenResponse
     # Set for signup and invite-accept, where there's exactly one relevant org.
     # Left unset for login/refresh: a user may belong to several organizations,
-    # and picking one isn't this endpoint's job — see GET /me/memberships (planned).
+    # and picking one isn't this endpoint's job — see GET /me/organizations.
     organization_id: uuid.UUID | None = None

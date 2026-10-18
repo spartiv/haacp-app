@@ -113,3 +113,26 @@ async def test_outsider_cannot_upload_or_download(client: AsyncClient) -> None:
         headers=_auth_header(outsider_token),
     )
     assert download_attempt.status_code == 403
+
+
+async def test_download_keeps_ukrainian_filename(client: AsyncClient) -> None:
+    owner = await _signup(client)
+    org_id = owner["organization_id"]
+    token = owner["tokens"]["access_token"]
+
+    upload_response = await client.post(
+        f"/api/v1/organizations/{org_id}/attachments",
+        files={"file": ("Паспорт камери.pdf", b"%PDF-1.4 fake", "application/pdf")},
+        headers=_auth_header(token),
+    )
+    assert upload_response.status_code == 201
+
+    download_response = await client.get(
+        f"/api/v1/organizations/{org_id}/attachments/{upload_response.json()['id']}",
+        headers=_auth_header(token),
+    )
+    assert download_response.status_code == 200
+    disposition = download_response.headers["content-disposition"]
+    # ASCII fallback for old clients, exact UTF-8 name for everyone else.
+    assert 'filename="_______ ______.pdf"' in disposition
+    assert "filename*=UTF-8''%D0%9F%D0%B0%D1%81%D0%BF%D0%BE%D1%80%D1%82%20" in disposition

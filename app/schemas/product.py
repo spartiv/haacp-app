@@ -52,6 +52,11 @@ class BatchCreateRequest(BaseModel):
     answers: list[BatchAnswerInput]
     deviation_note: str | None = None
     corrective_action: str | None = None
+    performed_by_user_id: uuid.UUID | None = Field(
+        default=None,
+        description="Who physically made / checked the batch, on a shared device. Must be "
+        "an active member. Defaults to the signed-in user (always recorded as signatory).",
+    )
 
 
 class BatchUpdateRequest(BaseModel):
@@ -74,7 +79,8 @@ class BatchResponse(BaseModel):
     has_deviation: bool
     deviation_note: str | None
     corrective_action: str | None
-    signatory_user_id: uuid.UUID
+    signatory_user_id: uuid.UUID = Field(description="The signed-in account that saved it.")
+    performed_by_user_id: uuid.UUID = Field(description="Who physically did it.")
     answers: list[BatchAnswerResponse]
 
 

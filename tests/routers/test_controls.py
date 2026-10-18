@@ -354,13 +354,28 @@ async def test_list_and_delete_control_records(client: AsyncClient) -> None:
     assert list_response.status_code == 200
     assert len(list_response.json()) == 1
 
-    delete_response = await client.delete(
+    # PUT /current auto-submits, and submitted records are part of the audit trail.
+    submitted_delete = await client.delete(
         f"/api/v1/organizations/{org_id}/control-records/{record_id}", headers=_auth_header(token)
+    )
+    assert submitted_delete.status_code == 409
+    assert submitted_delete.json()["error"]["code"] == "control_record_submitted"
+
+    # A draft (started item by item, not submitted) can still be deleted.
+    last_month = (date.today().replace(day=1) - timedelta(days=1)).isoformat()
+    draft = await client.post(
+        f"/api/v1/organizations/{org_id}/controls/monthly/items/{item_id}/check",
+        json={"status": "pass", "period_date": last_month},
+        headers=_auth_header(token),
+    )
+    draft_id = draft.json()["record_id"]
+    delete_response = await client.delete(
+        f"/api/v1/organizations/{org_id}/control-records/{draft_id}", headers=_auth_header(token)
     )
     assert delete_response.status_code == 204
 
     missing_get = await client.get(
-        f"/api/v1/organizations/{org_id}/control-records/{record_id}", headers=_auth_header(token)
+        f"/api/v1/organizations/{org_id}/control-records/{draft_id}", headers=_auth_header(token)
     )
     assert missing_get.status_code == 404
     assert missing_get.json()["error"]["code"] == "control_record_not_found"
