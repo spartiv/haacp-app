@@ -1,0 +1,123 @@
+.dash { display: grid; gap: 28px; padding-bottom: 40px; }
+
+.dash-section-title { margin: 0 0 10px; font-size: 11px; font-weight: 700; }
+
+
+/* ---- Today: the one white logbook page that leads the screen ---- */
+.today {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--ink);
+}
+.today__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding: 28px 24px 16px;
+  border-bottom: 2px solid var(--ink);
+}
+.today__kicker { margin: 0 0 6px; font-size: 10px; color: var(--ink-muted); }
+.today__title { margin: 0; font: 700 clamp(30px, 6vw, 48px) / 0.95 var(--font-display); }
+.today .panel-state { padding: 20px 24px; }
+.today .panel-state--error { margin: 16px 24px; }
+
+.today__body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(240px, 300px);
+}
+.today__progress { padding: 24px; }
+.today__count { margin: 0 0 14px; font: 700 clamp(22px, 4vw, 30px) / 1.1 var(--font-display); }
+.today__dev { margin: 12px 0 0; font-size: 11px; color: var(--ink-muted); }
+.today__dev--crit { font-weight: 700; color: var(--crit); }
+.today__empty { margin: 0; font-size: 12px; color: var(--ink-muted); }
+
+/* The recommended action sits in its own perforated column. */
+.today__action {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  border-left: 1px dashed var(--ink);
+}
+.today__label { margin: 0; font-size: 10px; font-weight: 700; color: var(--ink-muted); }
+.today__action .btn { min-height: 56px; }
+.today__done { margin: 0; font-size: 12px; font-weight: 700; }
+
+.today__attention { padding: 18px 24px 22px; border-top: 1px dashed var(--ink); }
+.today__attention .today__label { margin-bottom: 10px; }
+.today__attention .panel-state { padding: 8px 0; }
+.today__attention .panel-state--error { margin: 0; padding: 12px 14px; }
+
+.attention-list { list-style: none; margin: 0; padding: 0; }
+.attention-row {
+  display: grid;
+  grid-template-columns: 13ch minmax(0, 1fr);
+  gap: 12px;
+  align-items: baseline;
+  padding: 8px 0 8px 10px;
+  font-size: 12px;
+  border-bottom: 1px dotted var(--rule-soft);
+}
+.attention-row:last-child { border-bottom: none; }
+.attention-row__sev { font-size: 10px; font-weight: 700; }
+.attention-row--critical { border-left: 2px dashed var(--crit); }
+.attention-row--critical .attention-row__sev { color: var(--crit); }
+.attention-row--warning { border-left: 1px dashed var(--ink); }
+.attention-row--info { border-left: 1px dotted var(--ink); }
+.attention-row--info .attention-row__sev { color: var(--ink-muted); }
+
+/* ---- Journal cards: four index cards side by side ---- */
+.journal-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border: 1px solid var(--ink);
+  background: var(--surface);
+}
+.journal-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-height: 220px;
+  padding: 20px 16px 16px;
+  border-right: 1px dashed var(--ink);
+}
+.journal-card:last-child { border-right: none; }
+.journal-card--crit {
+  background:
+    repeating-linear-gradient(-45deg, var(--crit) 0 1.5px, transparent 1.5px 6px) left / 6px 100% no-repeat,
+    var(--surface);
+}
+.journal-card__title { margin: 0 0 12px; font: 500 16px/1.2 var(--font-display); }
+.journal-card__body { flex: 1; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
+.journal-card__metric { margin: 0; font: 700 32px/1 var(--font-mono); }
+.journal-card__metric--date { font-size: 18px; }
+.journal-card__muted { margin: 0; font-size: 11px; color: var(--ink-muted); }
+.journal-card__crit { margin: 0; font-size: 10px; font-weight: 700; color: var(--crit); }
+.journal-card__warn { margin: 0; padding-left: 6px; font-size: 10px; font-weight: 700; border-left: 1px dashed var(--ink); }
+.journal-card__foot { margin-top: 16px; }
+.journal-card__foot .btn { min-height: 40px; font-size: 11px; }
+
+/* ---- Tablet: 2×2 cards; phone: single column ---- */
+@media (max-width: 860px) {
+  .journal-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .journal-card:nth-child(2) { border-right: none; }
+  .journal-card:nth-child(-n + 2) { border-bottom: 1px dashed var(--ink); }
+}
+
+@media (max-width: 640px) {
+  .today__head { padding: 24px 16px 14px; }
+  .today__body { grid-template-columns: minmax(0, 1fr); }
+  .today__progress { padding: 18px 16px; }
+  .today__action { padding: 18px 16px; border-left: none; border-top: 1px dashed var(--ink); }
+  .today__attention { padding: 16px; }
+  .today .panel-state { padding: 16px; }
+  .today .panel-state--error { margin: 16px; }
+  .attention-row { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+  .journal-grid { grid-template-columns: minmax(0, 1fr); }
+  .journal-card { min-height: 0; border-right: none; border-bottom: 1px dashed var(--ink); }
+  .journal-card:last-child { border-bottom: none; }
+}
+.today__action .btn { padding: 10px 14px; line-height: 1.3; text-wrap: balance; }

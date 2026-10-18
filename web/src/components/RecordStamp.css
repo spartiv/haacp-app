@@ -1,0 +1,18 @@
+.record-stamp {
+  margin: 0;
+  padding: 6px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.record-stamp--none { color: var(--ink-muted); border: 1px dotted var(--ink); }
+.record-stamp--draft { color: var(--ink); border: 1px dashed var(--ink); }
+.record-stamp--submitted {
+  color: var(--ok);
+  border: 2px solid var(--ok);
+  transform: rotate(-2deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .record-stamp--submitted { transform: none; }
+}

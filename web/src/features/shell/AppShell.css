@@ -1,0 +1,52 @@
+.shell-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+  padding: 8px 16px;
+  font-size: 11px;
+  color: var(--surface);
+  background: var(--charcoal);
+}
+.shell-bar__title { font-weight: 700; }
+.shell-bar__meta { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+
+/* On the charcoal bar an ink button would vanish: inverted outline instead. */
+.shell-bar__signout {
+  min-height: 36px;
+  padding: 0 14px;
+  font: 700 11px/1 var(--font-mono);
+  color: var(--surface);
+  background: transparent;
+  border: 1px solid var(--surface);
+  cursor: pointer;
+}
+.shell-bar__signout:hover { color: var(--ink); background: var(--surface); }
+.shell-bar__signout:focus-visible { outline-color: var(--surface); }
+
+.shell-main { max-width: 960px; margin: 0 auto; padding: 24px 16px 0; }
+
+/* ---- Section tabs: the active tab is a solid ink block, like a filed tab divider ---- */
+.shell-nav {
+  display: flex;
+  overflow-x: auto;
+  background: var(--surface);
+  border-bottom: 2px solid var(--ink);
+}
+.shell-nav__link {
+  flex: none;
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 18px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: none;
+  border-right: 1px dashed var(--ink);
+}
+.shell-nav__link:hover { background: var(--bg); }
+.shell-nav__link.active,
+.shell-nav__link.active:hover { color: var(--surface); background: var(--ink); }
+.shell-nav__link:focus-visible { outline-offset: -3px; }

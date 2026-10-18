@@ -1,0 +1,97 @@
+/* Design tokens — single source of truth. Rules: web/DESIGN.md */
+:root {
+  --bg: #F2F2F4;
+  --surface: #FFFFFF;
+  --ink: #111111;
+  --ink-muted: #4A4A4F;
+  --rule-soft: #B8B8BE;
+  --charcoal: #1C1C1F;
+  --ok: #0049FF;    /* verified / pass status ONLY — never actions */
+  --crit: #E60000;  /* deviation / critical limit */
+
+  --font-mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace;
+  --font-display: "Space Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --track: 0.05em;
+}
+
+/* Global guards: no softness, ever */
+*, *::before, *::after {
+  box-sizing: border-box;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 400 13px/1.5 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.caps {
+  text-transform: uppercase;
+  letter-spacing: var(--track);
+}
+
+:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+
+/* ---- Buttons: actions are ink only. Blue is never an action color. ---- */
+.btn {
+  min-height: 48px;
+  padding: 0 18px;
+  font: 700 12px/1 var(--font-mono);
+  letter-spacing: var(--track);
+  border: 1px solid var(--ink);
+  cursor: pointer;
+}
+.btn--primary { color: var(--surface); background: var(--ink); }
+.btn--primary:hover:not(:disabled) { background: #000; }
+.btn--secondary { color: var(--ink); background: var(--surface); }
+.btn--secondary:hover:not(:disabled) { background: var(--bg); }
+.btn:disabled { cursor: not-allowed; opacity: 0.4; }
+.btn--wide { width: 100%; }
+/* A router link that looks like a button. */
+.btn--link { display: inline-flex; align-items: center; justify-content: center; text-align: center; text-decoration: none; }
+.btn--link.btn--wide { display: flex; }
+
+/* ---- Segmented toggles (pass/deviation, yes/no): the chosen option is solid ink ---- */
+.toggle-group { display: flex; }
+.toggle {
+  min-height: 48px;
+  padding: 0 14px;
+  font: 700 11px/1 var(--font-mono);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  cursor: pointer;
+}
+.toggle + .toggle { border-left: none; }
+.toggle:hover:not(:disabled) { background: var(--bg); }
+.toggle--on,
+.toggle--on:hover:not(:disabled) { color: var(--surface); background: var(--ink); }
+.toggle:disabled { cursor: progress; opacity: 0.5; }
+
+/* ---- Form primitives shared by every journal form ---- */
+.field { display: grid; gap: 6px; align-content: start; min-width: 0; }
+.field__label { font-size: 10px; font-weight: 700; }
+.field__label .req { color: var(--crit); }
+.field__hint { margin: 0; font-size: 10px; color: var(--ink-muted); }
+.input {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  padding: 10px 12px;
+  font: 400 13px/1.5 var(--font-mono);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+}
+textarea.input { resize: vertical; }
+select.input { appearance: auto; }
+.input::placeholder { color: var(--ink-muted); opacity: 0.7; }
+.input:disabled { opacity: 0.5; }

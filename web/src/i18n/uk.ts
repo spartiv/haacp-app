@@ -1,0 +1,482 @@
+// All user-facing text, in Ukrainian. One dictionary, typed keys: a missing or
+// misspelled key is a compile error. Add a second language by mirroring this shape.
+import type { ControlItemStatus } from '../api/types'
+import { ApiError } from '../api/client'
+
+/** Ukrainian plural form: 1 перевірка, 2–4 перевірки, 0/5+ перевірок (11–14 → many). */
+export function plural(n: number, one: string, few: string, many: string): string {
+  const mod10 = n % 10
+  const mod100 = n % 100
+  if (mod10 === 1 && mod100 !== 11) return one
+  if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return few
+  return many
+}
+
+const checks = (n: number) => plural(n, 'перевірка', 'перевірки', 'перевірок')
+const deviations = (n: number) => plural(n, 'відхилення', 'відхилення', 'відхилень')
+
+export const uk = {
+  locale: 'uk-UA',
+
+  status: {
+    pending: '[ В ОЧІКУВАННІ ]',
+    pass: '[ В НОРМІ ]',
+    deviation: '[ ВІДХИЛЕННЯ ]',
+  } satisfies Record<ControlItemStatus, string>,
+
+  record: {
+    none: '[ НЕ РОЗПОЧАТО ]',
+    draft: '[ ЧЕРНЕТКА ]',
+    submitted: '[ ПОДАНО ]',
+  },
+
+  common: {
+    retry: 'Спробувати ще раз',
+    cancel: 'Скасувати',
+    close: 'Закрити',
+    loading: '[ ЗАВАНТАЖЕННЯ… ]',
+    error: '[ ПОМИЛКА ]',
+    code: 'Код',
+  },
+
+  login: {
+    brandSub: 'Журнали безпечності харчових продуктів',
+    title: 'Вхід',
+    hint: 'Використайте обліковий запис, на який вас запросив керівник.',
+    email: 'Електронна пошта',
+    password: 'Пароль',
+    submit: 'Увійти',
+    submitting: '[ ПЕРЕВІРКА… ]',
+    expired: 'Сесія завершилась. Увійдіть знову.',
+    accessRevoked: 'Доступ до закладу більше не активний. Увійдіть знову.',
+    emailRequired: 'Введіть електронну пошту.',
+    passwordRequired: 'Введіть пароль.',
+    foot: 'Сесія зберігається на цьому пристрої',
+    denied: '[ ДОСТУП ЗАБОРОНЕНО ]',
+    noConnection: '[ НЕМАЄ ЗВʼЯЗКУ ]',
+  },
+
+  orgPicker: {
+    title: 'Оберіть заклад',
+    hint: 'Ваш обліковий запис має доступ до кількох закладів.',
+    lastUsed: 'Останній',
+    back: 'Інший обліковий запис',
+    role: { owner: 'Власник', manager: 'Менеджер', staff: 'Працівник' } as Record<string, string>,
+  },
+
+  shell: {
+    nav: 'Розділи',
+    dashboard: 'Дашборд',
+    journals: 'Журнали',
+    signOut: 'Вийти',
+  },
+
+  dashboard: {
+    title: 'Дашборд',
+    todayKicker: 'Швидкий статус за день',
+    checksFilled: (done: number, total: number) => `${done} / ${total} ${checks(total)} заповнено`,
+    deviationsCount: (n: number) => `${n} ${deviations(n)}`,
+    noDeviations: 'Без відхилень',
+    noChecklist: 'Щоденний чек-лист ще не налаштовано.',
+    recommended: 'Рекомендована дія',
+    action: {
+      start: 'Почати щоденний контроль',
+      continue: (done: number, total: number) => `Продовжити контроль (${done}/${total})`,
+      submit: 'Подати аркуш',
+      reviewDeviations: 'Переглянути відхилення',
+      openSheet: 'Відкрити аркуш',
+      setup: 'Чек-лист налаштовує власник або менеджер',
+      allDone: 'Усе заповнено на сьогодні',
+    },
+    attention: 'Потребує уваги',
+    attentionEmpty: 'Немає відкритих попереджень.',
+    severity: { critical: '[ КРИТИЧНО ]', warning: '[ УВАГА ]', info: '[ ІНФО ]' } as Record<string, string>,
+    journals: 'Журнали',
+    journal: {
+      daily: 'Щоденний контроль',
+      batches: 'Контроль партій',
+      glass: 'Бій скла та пластику',
+      medical: 'Медичні книжки та ТО',
+    },
+    batchesThisMonth: (n: number) => `${n} ${plural(n, 'партія', 'партії', 'партій')} цього місяця`,
+    glassLast: 'Дата останнього запису',
+    glassNone: 'Записів ще немає',
+    glassDeviation: 'Останній запис з відхиленням',
+    medicalOverdue: (n: number) => `${n} ${plural(n, 'медогляд', 'медогляди', 'медоглядів')} прострочено`,
+    medicalSoon: (n: number) => `${n} ${plural(n, 'медогляд', 'медогляди', 'медоглядів')} найближчим часом`,
+    medicalOk: 'Медогляди в нормі',
+    medicalNone: 'Медкнижок ще не внесено',
+    maintenanceLast: (date: string) => `Останнє ТО: ${date}`,
+    maintenanceNone: 'ТО ще не записано',
+    loadFailed: 'Не вдалося завантажити.',
+    open: 'Відкрити',
+  },
+
+  controls: {
+    kicker: (weekday: string) => `Щоденний контроль / ${weekday}`,
+    dayNav: 'Вибір дня',
+    prevDay: '← Попередній день',
+    today: 'Сьогодні',
+    pickDate: 'Дата',
+    loadingToday: '[ ВИЗНАЧЕННЯ ДАТИ… ]',
+    nextDay: 'Наступний день →',
+    auditHistory: 'Історія змін',
+    nothingRecorded: 'Ще нічого не записано',
+    loadingSheet: '[ ЗАВАНТАЖЕННЯ АРКУША… ]',
+    sheetLoadFailed: 'Не вдалося завантажити аркуш.',
+    noChecks: '[ ПЕРЕВІРКИ НЕ НАЛАШТОВАНО ]',
+    noChecksHint: 'Власник або менеджер має додати пункти щоденного чек-листа, перш ніж аркуш можна заповнити.',
+    reading: {
+      range: (range: string) => `Норма: ${range}`,
+      placeholder: '0,0',
+      record: 'Записати',
+      invalid: 'Введіть число, напр. 3,5 або -18.',
+      outOfRange: (value: string, range: string) => `[ ПОЗА НОРМОЮ ] ${value}, норма ${range}`,
+      newValue: (value: string) => `Нове значення: ${value}`,
+    },
+    settings: 'Налаштувати чек-лист',
+    monthly: {
+      kicker: (year: string) => `Щомісячний контроль / ${year}`,
+      nav: 'Вибір місяця',
+      prev: '← Попередній місяць',
+      next: 'Наступний місяць →',
+      current: 'Цей місяць',
+      pick: 'Місяць',
+      noChecksHint: 'Власник або менеджер має додати пункти щомісячного чек-листа, перш ніж аркуш можна заповнити.',
+    },
+    submittedNotice: (by: string | null, at: string | null) =>
+      `Подано${by ? `: ${by}` : ''}${at ? `, ${at}` : ''}. Тепер зміни потребують причини і записуються в журнал.`,
+    checkedBy: (name: string, time: string) => `Перевірив(ла): ${name} / ${time}`,
+    notChecked: 'Ще не перевірено',
+    correctiveAction: 'Коригувальна дія',
+    required: '(обовʼязково)',
+    amendmentNotice: '[ ВИПРАВЛЕННЯ ] Аркуш уже подано. Зміну буде записано разом із причиною.',
+    amendmentReason: 'Причина виправлення',
+    actionPlaceholder: 'Що зроблено? Напр.: продукцію переміщено в резервний холодильник, викликано майстра.',
+    reasonPlaceholder: 'Чому змінюється запис після подання?',
+    presets: 'Швидкі варіанти',
+    saving: '[ ЗБЕРЕЖЕННЯ… ]',
+    saveAmendment: 'Зберегти виправлення',
+    saveDeviation: 'Зберегти відхилення',
+    save: 'Зберегти',
+    saveFailed: 'Не вдалося зберегти. Спробуйте ще раз.',
+    progress: (done: number, total: number) => `${done} / ${total}`,
+    checked: (total: number) => `${checks(total)} заповнено`,
+    deviations: (n: number) => ` / ${n} ${deviations(n)}`,
+    checkAll: 'Заповніть усі пункти, щоб подати аркуш.',
+    submit: 'Подати аркуш',
+    submitting: '[ ПОДАННЯ… ]',
+    submitFailed: 'Не вдалося подати. Спробуйте ще раз.',
+  },
+
+  journals: {
+    title: 'Журнали',
+    kicker: 'Реєстр журналів НАССР',
+    back: '← Журнали',
+    groupsLabel: 'Групи журналів',
+    group: {
+      daily: 'Щоденні',
+      periodic: 'Періодичні',
+      planned: 'Планові',
+      events: 'Події',
+      references: 'Довідники',
+    },
+    groupHint: {
+      daily: 'Заповнюються щодня, до кінця зміни.',
+      periodic: 'Щомісячні перевірки та роботи за графіком.',
+      planned: 'Заходи з датою наступного виконання.',
+      events: 'Записуються, коли подія сталася.',
+      references: 'Обладнання та засоби, на які посилаються журнали.',
+    },
+    cadence: {
+      daily: 'Щодня',
+      monthly: 'Щомісяця',
+      periodic: 'За графіком',
+      event: 'За подією',
+      planned: 'За датою',
+      reference: 'Довідник',
+    },
+    name: {
+      daily: 'Щоденний контроль',
+      monthly: 'Щомісячний контроль',
+      batches: 'Контроль партій готової продукції',
+      medical: 'Медичні книжки',
+      equipment: 'Обладнання',
+      chemicals: 'Миючі та дезінфекційні засоби',
+    },
+    open: 'Відкрити',
+    lastEntry: (date: string) => `Останній запис: ${date}`,
+    noEntries: 'Записів ще немає',
+    lastDeviation: 'Останній запис з відхиленням',
+    checked: (done: number, total: number) => `${done} / ${total} заповнено`,
+    noChecklist: 'Чек-лист не налаштовано',
+    products: (n: number) => `${n} ${plural(n, 'продукт', 'продукти', 'продуктів')}`,
+    equipmentCount: (n: number) => `${n} ${plural(n, 'позиція', 'позиції', 'позицій')}`,
+    missingDocs: (n: number) => `${n} без документа`,
+    chemicalsCount: (n: number) => `${n} ${plural(n, 'засіб', 'засоби', 'засобів')}`,
+    empty: 'Порожньо',
+    loadFailed: 'Не вдалося завантажити.',
+
+    // Shared form / list words
+    newEntry: 'Новий запис',
+    entries: 'Записи',
+    date: 'Дата',
+    save: 'Зберегти',
+    saving: '[ ЗБЕРЕЖЕННЯ… ]',
+    add: 'Додати',
+    edit: 'Редагувати',
+    delete: 'Видалити',
+    confirmDelete: 'Видалити запис?',
+    confirmYes: 'Так, видалити',
+    deleting: '[ ВИДАЛЕННЯ… ]',
+    deleteFailed: 'Не вдалося видалити.',
+    showMore: (n: number) => `Показати ще ${n}`,
+    recorded: 'Записано',
+    yes: 'Так',
+    no: 'Ні',
+    managersOnly: 'Змінювати цей розділ можуть власник або менеджер.',
+    notFound: 'Журнал не знайдено.',
+    entrySaved: 'Запис збережено.',
+
+    event: {
+      kicker: (cadence: string) => `Журнал / ${cadence}`,
+      details: 'Опис',
+      equipment: 'Обладнання',
+      equipmentNone: '— Не вибрано —',
+      detailsPlaceholder: {
+        glass: 'Що розбилось, де саме, які дії вжито (зібрано, продукцію перевірено/утилізовано).',
+        filters: 'Тип фільтра, виконані роботи, показник лічильника.',
+        eq: 'Які роботи виконано, хто виконував, результат.',
+        visitors: 'ПІБ / організація, мета візиту, час, ознак хвороби немає, інструктаж проведено.',
+        disinfect: 'Засіб і концентрація, оброблені зони, повністю виконано.',
+        chemBriefing: 'Хто пройшов інструктаж, які засоби, хто проводив.',
+        default: 'Що зроблено або що сталося.',
+      } as Record<string, string>,
+      waterParams: 'Показники',
+      waterParamsHint: 'Оберіть усі показники з протоколу.',
+      waterResult: 'Результат',
+      pestsDetected: 'Виявлено шкідників?',
+      pestsActions: 'Вжиті заходи',
+      pestsActionsPlaceholder: 'Що зроблено: огляд, пастки, виклик служби дератизації.',
+      detected: (yes: boolean) => (yes ? 'Виявлено' : 'Не виявлено'),
+      needDetails: 'Опишіть запис (щонайменше 3 символи).',
+      needParams: 'Оберіть хоча б один показник.',
+      needResult: 'Оберіть результат: в нормі чи відхилення.',
+      needDetected: 'Вкажіть, чи виявлено шкідників.',
+      needActions: 'Опишіть вжиті заходи (щонайменше 3 символи).',
+    },
+
+    batches: {
+      kicker: 'Журнал / За подією',
+      productsLabel: 'Продукти',
+      noProducts: 'Продуктів ще немає.',
+      noProductsStaff: 'Власник або менеджер має додати продукт і його чек-лист.',
+      addProduct: 'Додати продукт',
+      productName: 'Назва продукту',
+      productPlaceholder: 'Напр.: Круасан класичний',
+      checklist: 'Чек-лист продукту',
+      checklistHint: '«Ні» в будь-якому пункті означає відхилення.',
+      checklistEmpty: 'Пунктів ще немає. Додайте перевірки, які робите для кожної партії.',
+      addQuestion: 'Додати пункт',
+      questionPlaceholder: 'Напр.: Вага в межах норми',
+      configure: 'Налаштувати чек-лист',
+      doneConfiguring: 'Готово',
+      newBatch: 'Нова партія',
+      number: 'Номер партії',
+      nameOptional: 'Назва (необовʼязково)',
+      productionDate: 'Дата виробництва',
+      deviationNote: 'Опис відхилення',
+      deviationNotePlaceholder: 'Що саме не відповідає нормі?',
+      answerAll: 'Дайте відповідь на всі пункти чек-листа.',
+      needNumber: 'Вкажіть номер партії.',
+      needAction: 'Опишіть коригувальну дію (щонайменше 3 символи).',
+      list: 'Партії',
+      none: 'Партій цього продукту ще немає.',
+      noChecks: 'Без чек-листа',
+    },
+
+    medical: {
+      kicker: 'Журнал / За датою',
+      intro: 'Дата наступного медогляду кожного працівника. Прострочені та найближчі (14 днів) потрапляють на дашборд.',
+      employee: 'Працівник',
+      employeePlaceholder: 'ПІБ працівника',
+      nextDate: 'Наступний медогляд',
+      add: 'Додати працівника',
+      none: 'Медкнижок ще не внесено.',
+      overdue: (days: number) => `Прострочено на ${days} ${plural(days, 'день', 'дні', 'днів')}`,
+      dueToday: 'Сьогодні',
+      soon: (days: number) => `Через ${days} ${plural(days, 'день', 'дні', 'днів')}`,
+      ok: 'В нормі',
+    },
+
+    equipment: {
+      kicker: 'Довідник',
+      add: 'Додати обладнання',
+      name: 'Назва',
+      namePlaceholder: 'Напр.: Холодильна камера №1',
+      type: 'Тип',
+      types: {
+        production: 'Виробниче',
+        refrigeration: 'Холодильне',
+        measuring: 'Вимірювальне',
+        other: 'Інше',
+      } as Record<string, string>,
+      frequency: 'Періодичність ТО',
+      frequencyPlaceholder: 'Напр.: раз на квартал',
+      amount: 'Кількість',
+      safety: 'Впливає на безпечність продукції',
+      safetyTag: 'Критичне',
+      none: 'Обладнання ще не внесено.',
+      maintenance: (freq: string) => `ТО: ${freq}`,
+    },
+
+    chemicals: {
+      kicker: 'Довідник',
+      add: 'Додати засіб',
+      name: 'Назва засобу',
+      namePlaceholder: 'Напр.: Деохлор',
+      category: 'Призначення',
+      categories: { cleaning: 'Миючий', disinfecting: 'Дезінфекційний' } as Record<string, string>,
+      none: 'Засобів ще не внесено.',
+    },
+
+    checklist: {
+      kicker: (name: string) => `Налаштування / ${name}`,
+      title: 'Чек-лист',
+      periods: 'Чек-листи',
+      items: 'Пункти',
+      none: 'Пунктів ще немає. Додайте першу перевірку нижче.',
+      add: 'Додати пункт',
+      label: 'Що перевіряємо',
+      labelPlaceholder: 'Напр.: Температура в холодильній камері №1',
+      type: 'Тип відповіді',
+      types: { bool: 'Так / Ні', numeric: 'Вимірювання' } as Record<string, string>,
+      typeHint: {
+        bool: '«Ні» або «Відхилення» означає відхилення.',
+        numeric: 'Значення поза нормою автоматично стає відхиленням і потребує коригувальної дії.',
+      } as Record<string, string>,
+      typeFixed: 'Тип відповіді не змінюється після створення.',
+      unit: 'Одиниця',
+      unitPlaceholder: '°C',
+      min: 'Мінімум',
+      max: 'Максимум',
+      boundsHint: 'Межі включні. Залиште одну порожньою, якщо вона не потрібна (напр. морозильник: лише максимум -18 °C).',
+      needLabel: 'Опишіть, що перевіряємо.',
+      needUnit: 'Вкажіть одиницю, напр. °C.',
+      needBound: 'Вкажіть мінімум, максимум або обидва.',
+      badNumber: 'Межа має бути числом, напр. 4 або -18,5.',
+      minAboveMax: 'Мінімум не може бути більшим за максимум.',
+      removeNote: 'Видалений пункт зникне з нових аркушів; уже заповнені аркуші та історія змін зберігаються.',
+      rangeChangeNote: 'Нові межі діють для наступних вимірювань; уже записані значення зберігають вердикт на момент запису.',
+      open: 'Налаштувати',
+    },
+
+    document: {
+      label: 'Документ',
+      none: 'Немає документа',
+      missingCritical: 'Немає документа (критичне)',
+      download: 'Завантажити документ',
+      downloading: '[ ЗАВАНТАЖЕННЯ… ]',
+      upload: 'Додати документ',
+      replace: 'Замінити',
+      uploading: '[ ВІДПРАВЛЕННЯ… ]',
+      remove: 'Видалити документ',
+      hint: 'PDF, PNG або JPEG, до 20 МБ',
+    },
+  },
+
+  performer: {
+    label: 'Виконавець',
+    you: (name: string) => `${name} (ви)`,
+    hint: 'Хто фізично виконав роботу. Обліковий запис, з якого зроблено запис, зберігається окремо.',
+    did: (name: string) => `Виконав(ла): ${name}`,
+    via: (name: string) => `обліковий запис: ${name}`,
+    unknown: 'Працівник',
+  },
+
+  audit: {
+    kicker: 'Історія змін / лише додавання',
+    loadFailed: 'Не вдалося завантажити історію.',
+    empty: 'Змін ще не записано.',
+    loadOlder: 'Завантажити старіші записи',
+    start: '— Початок запису —',
+    amendment: '[ ВИПРАВЛЕННЯ ]',
+    removedItem: 'Видалений пункт',
+    changedTo: 'змінено на',
+    correctiveAction: 'Коригувальна дія:',
+    reason: 'Причина:',
+    by: (name: string) => `Автор: ${name}`,
+  },
+}
+
+/**
+ * Corrective-action presets shown as chips under the deviation field. Tapping one
+ * appends it to the text, which stays editable. Kept here (not per-organization)
+ * until there is a settings screen to manage them.
+ */
+export const CORRECTIVE_ACTION_PRESETS: readonly string[] = [
+  'Переміщено в резервний холодильник',
+  'Викликано майстра',
+  'Проведено дезінфекцію',
+  'Продукцію утилізовано',
+  'Повторно перевірено через 30 хв',
+  'Повідомлено керівника',
+]
+
+// Server messages are in English; the UI translates the codes it knows and
+// falls back to the server message for the rest.
+const ERROR_MESSAGES: Record<string, string> = {
+  network_error: 'Немає звʼязку з сервером. Перевірте інтернет і спробуйте ще раз.',
+  server_unavailable: 'Сервер тимчасово недоступний. Спробуйте за хвилину.',
+  unexpected_error: 'Щось пішло не так. Спробуйте ще раз.',
+  invalid_credentials: 'Невірна електронна пошта або пароль.',
+  unauthenticated: 'Потрібно увійти.',
+  invalid_token: 'Сесія завершилась. Увійдіть знову.',
+  invalid_refresh_token: 'Сесія завершилась. Увійдіть знову.',
+  forbidden: 'Недостатньо прав для цієї дії.',
+  no_organizations: 'Цей обліковий запис не має доступу до жодного закладу. Зверніться до керівника.',
+  validation_error: 'Перевірте введені дані.',
+  corrective_action_required: 'Опишіть коригувальну дію (щонайменше 3 символи).',
+  amendment_reason_required: 'Вкажіть причину виправлення (щонайменше 3 символи).',
+  control_record_already_submitted: 'Аркуш уже подано.',
+  control_record_incomplete: 'Не всі пункти заповнено.',
+  control_record_submitted: 'Подані аркуші не можна видаляти.',
+  control_record_not_found: 'Аркуш не знайдено.',
+  control_checklist_item_not_found: 'Пункт чек-листа не знайдено.',
+  future_period_date: 'Не можна заповнювати майбутні дати.',
+  organization_not_found: 'Заклад не знайдено.',
+  numeric_value_required: 'Введіть виміряне значення.',
+  invalid_performer: 'Обраний виконавець більше не має доступу до закладу. Оберіть іншого.',
+  numeric_value_not_applicable: 'Цей пункт має відповідь «Так/Ні», а не число.',
+  invalid_check_status: 'Оберіть «В нормі» або «Відхилення».',
+  invalid_checklist_item_config: 'Перевірте налаштування пункту: одиниця та хоча б одна межа, мінімум не більший за максимум.',
+  numeric_items_not_supported: 'Цей чек-лист містить вимірювання. Заповнюйте його по пунктах.',
+  invalid_event_payload: 'Дані запису не відповідають формату журналу.',
+  event_log_type_not_found: 'Журнал не знайдено.',
+  event_entry_not_found: 'Запис уже видалено.',
+  checklist_mismatch: 'Чек-лист змінився. Оновіть сторінку й дайте відповідь на всі пункти.',
+  batch_not_found: 'Партію не знайдено.',
+  product_not_found: 'Продукт не знайдено.',
+  checklist_item_not_found: 'Пункт чек-листа не знайдено.',
+  equipment_not_found: 'Обладнання не знайдено.',
+  chemical_not_found: 'Засіб не знайдено.',
+  medical_check_not_found: 'Запис не знайдено.',
+  attachment_not_found: 'Файл не знайдено.',
+  attachment_too_large: 'Файл завеликий. Максимум 20 МБ.',
+  unsupported_content_type: 'Підтримуються лише PDF, PNG і JPEG.',
+}
+
+const GENERIC_REQUEST_FAILED = 'Не вдалося виконати запит. Спробуйте ще раз.'
+
+/** Always Ukrainian: known codes are translated, anything else gets a generic line (the code is shown separately). */
+export function errorMessage(error: unknown): string {
+  if (!(error instanceof ApiError)) return ERROR_MESSAGES.unexpected_error ?? GENERIC_REQUEST_FAILED
+  const known = ERROR_MESSAGES[error.code]
+  if (known !== undefined) return known
+  if (error.status === 0 || error.status >= 500) return ERROR_MESSAGES.server_unavailable ?? GENERIC_REQUEST_FAILED
+  return GENERIC_REQUEST_FAILED
+}
+
+export function errorCode(error: unknown): string {
+  return error instanceof ApiError ? error.code : 'unexpected_error'
+}

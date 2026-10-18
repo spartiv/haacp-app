@@ -1,0 +1,281 @@
+/* Journal screens: same logbook language as the daily sheet (DESIGN.md). */
+.jpage { display: grid; gap: 16px; padding-bottom: 40px; }
+
+.jpage-back {
+  justify-self: start;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px dotted var(--ink);
+}
+.jpage-back:hover { border-bottom-style: solid; }
+
+.jpage-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  flex-wrap: wrap;
+  gap: 12px 24px;
+  padding: 28px 24px 20px;
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  border-bottom-width: 2px;
+}
+.jpage-head__kicker { margin: 0 0 6px; font-size: 10px; color: var(--ink-muted); }
+.jpage-head__title { margin: 0; font: 700 clamp(26px, 5vw, 40px) / 1 var(--font-display); text-wrap: balance; }
+.jpage-head__aside { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.jpage-intro { margin: 0; max-width: 70ch; font-size: 12px; color: var(--ink-muted); }
+
+/* ---- A white panel with a title strip ---- */
+.jsection { background: var(--surface); border: 1px solid var(--ink); }
+.jsection__head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  min-height: 44px;
+  padding: 8px 24px;
+  border-bottom: 1px dashed var(--ink);
+}
+.jsection__title { margin: 0; font-size: 11px; font-weight: 700; }
+.jsection__pad { padding: 16px 24px; }
+.jsection__pad .panel-state { padding: 4px 0; }
+.jsection__empty { margin: 0; padding: 20px 24px; font-size: 12px; color: var(--ink-muted); }
+.jsection__note { margin: 0; padding: 10px 24px; font-size: 11px; color: var(--ink-muted); border-bottom: 1px dotted var(--rule-soft); }
+.jsection__note--foot { border-bottom: none; border-top: 1px dotted var(--rule-soft); }
+
+/* ---- Forms ---- */
+.jform {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px 20px;
+  padding: 20px 24px;
+}
+.jform--tight { padding: 16px 0 4px; }
+.jform--split { border-top: 1px dotted var(--ink); }
+.jform__spacer { flex: 1; }
+.jform__wide { grid-column: 1 / -1; }
+.jform__actions { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.jform__check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 12px;
+  cursor: pointer;
+}
+.jform__check input { width: 20px; height: 20px; margin: 0; accent-color: var(--ink); }
+.jform__saved { margin: 0; font-size: 11px; font-weight: 700; }
+
+/* Checklist questions inside a form (batches): one per line, answer on the right. */
+.qlist { grid-column: 1 / -1; list-style: none; margin: 0; padding: 0; border-top: 1px dotted var(--ink); }
+.qlist__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  padding: 10px 0;
+  border-bottom: 1px dotted var(--ink);
+}
+.qlist__label { margin: 0; font: 500 14px/1.35 var(--font-display); }
+.qlist__row--bad .qlist__label { color: var(--crit); }
+
+/* Multi-select chips (water test parameters): dashed = off, solid ink = on. */
+.pick-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.pick-chip {
+  min-height: 40px;
+  padding: 0 12px;
+  font: 700 11px/1 var(--font-mono);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px dashed var(--ink);
+  cursor: pointer;
+}
+.pick-chip:hover { border-style: solid; }
+.pick-chip[aria-pressed='true'],
+.pick-chip[aria-current='page'] { color: var(--surface); background: var(--ink); border-style: solid; }
+.pick-chip--link { display: inline-flex; align-items: center; text-decoration: none; }
+
+.form-error {
+  margin: 0;
+  padding: 8px 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--crit);
+  border: 2px dashed var(--crit);
+}
+
+/* A deviation answer is marked red as well as filled, so it never reads as "fine". */
+.toggle--bad,
+.toggle--bad:hover:not(:disabled) { color: var(--surface); background: var(--crit); border-color: var(--crit); }
+
+.btn--sm { min-height: 36px; padding: 0 12px; font-size: 11px; }
+.btn--danger { color: var(--crit); background: var(--surface); border: 2px dashed var(--crit); }
+.btn--danger:hover:not(:disabled) { border-style: solid; }
+
+.link-btn {
+  min-height: 32px;
+  padding: 0;
+  font: 700 10px/1 var(--font-mono);
+  color: var(--ink);
+  background: none;
+  border: none;
+  border-bottom: 1px dotted var(--ink);
+  cursor: pointer;
+}
+.link-btn:hover { border-bottom-style: solid; }
+.link-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+.inline-confirm { display: inline-flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.inline-confirm__q { font-size: 10px; font-weight: 700; color: var(--crit); }
+.inline-confirm__error { flex-basis: 100%; font-size: 11px; color: var(--crit); }
+
+/* ---- Status tags ---- */
+.tag {
+  display: inline-block;
+  padding: 3px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+.tag--ok { color: var(--ok); border: 2px solid var(--ok); }
+.tag--crit { color: var(--crit); border: 2px dashed var(--crit); }
+.tag--warn { color: var(--ink); border: 1px dashed var(--ink); }
+.tag--ink { color: var(--ink); border: 1px solid var(--ink); }
+.tag--muted { color: var(--ink-muted); border: 1px dotted var(--ink); }
+
+/* ---- Registers: one row per record, perforated like a tear-off log ---- */
+.register { list-style: none; margin: 0; padding: 0; }
+.reg-row {
+  display: grid;
+  grid-template-columns: 11ch minmax(0, 1fr) auto;
+  gap: 4px 18px;
+  align-items: start;
+  padding: 14px 24px;
+  border-bottom: 1px dashed var(--ink);
+}
+.reg-row:last-child { border-bottom: none; }
+.register--two .reg-row { grid-template-columns: minmax(0, 1fr) auto; }
+.reg-row--crit {
+  background:
+    repeating-linear-gradient(-45deg, var(--crit) 0 1.5px, transparent 1.5px 6px) left / 6px 100% no-repeat,
+    var(--surface);
+}
+.reg-row--editing { display: block; background: var(--bg); }
+.reg-row__date { margin: 2px 0 0; font: 700 13px/1.3 var(--font-mono); }
+.reg-row__main { min-width: 0; display: grid; gap: 4px; justify-items: start; }
+.reg-row__title { margin: 0; font: 500 15px/1.35 var(--font-display); overflow-wrap: anywhere; }
+.reg-row__text { margin: 0; font-size: 12px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.reg-row__meta { margin: 0; font-size: 9px; color: var(--ink-muted); }
+.reg-row__via { opacity: 0.8; }
+.reg-row__action {
+  margin: 4px 0 0;
+  padding: 4px 10px;
+  font-size: 12px;
+  border-left: 2px dashed var(--crit);
+}
+.reg-row__action .caps { font-size: 9px; font-weight: 700; color: var(--crit); }
+.reg-row__side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; }
+.reg-row__tools { display: flex; align-items: center; justify-content: flex-end; flex-wrap: wrap; gap: 6px 14px; }
+.reg-row__answers { list-style: none; margin: 4px 0 0; padding: 0; font-size: 11px; }
+.reg-row__answers li { padding: 2px 0; }
+.reg-row__answers .bad { font-weight: 700; color: var(--crit); }
+
+/* ---- Hub ---- */
+.hub-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  background: var(--surface);
+  border: 1px solid var(--ink);
+}
+.hub-tab {
+  flex: 1 1 auto;
+  min-height: 48px;
+  padding: 0 16px;
+  font: 700 11px/1 var(--font-mono);
+  letter-spacing: var(--track);
+  color: var(--ink);
+  background: var(--surface);
+  border: none;
+  border-right: 1px dashed var(--ink);
+  cursor: pointer;
+}
+.hub-tab:last-child { border-right: none; }
+.hub-tab:hover { background: var(--bg); }
+.hub-tab[aria-selected='true'] { color: var(--surface); background: var(--ink); }
+.hub-tab:focus-visible { outline-offset: -4px; outline-color: var(--ok); }
+
+.hub-list { list-style: none; margin: 0; padding: 0; }
+.hub-row {
+  display: grid;
+  grid-template-columns: 48px minmax(0, 1fr) minmax(0, 15rem) auto;
+  gap: 8px 18px;
+  align-items: center;
+  padding: 16px 24px;
+  color: var(--ink);
+  text-decoration: none;
+  border-bottom: 1px dashed var(--ink);
+}
+.hub-list li:last-child .hub-row { border-bottom: none; }
+.hub-row:hover { background: var(--bg); }
+.hub-row:hover .hub-row__open { color: var(--surface); background: var(--ink); }
+.hub-row:focus-visible { outline-offset: -4px; }
+.hub-row--crit {
+  background:
+    repeating-linear-gradient(-45deg, var(--crit) 0 1.5px, transparent 1.5px 6px) left / 6px 100% no-repeat,
+    var(--surface);
+}
+.hub-row__mono {
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  font: 700 13px/1 var(--font-mono);
+  border: 1px solid var(--ink);
+}
+.hub-row--crit .hub-row__mono { color: var(--crit); border: 2px dashed var(--crit); }
+.hub-row__name { margin: 0; font: 500 17px/1.25 var(--font-display); }
+.hub-row__cadence { margin: 2px 0 0; font-size: 9px; color: var(--ink-muted); }
+.hub-row__status { display: grid; gap: 4px; justify-items: start; font-size: 11px; }
+.hub-row__status p { margin: 0; }
+.hub-row__muted { color: var(--ink-muted); }
+.hub-row__open {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 14px;
+  font-size: 11px;
+  font-weight: 700;
+  border: 1px solid var(--ink);
+}
+
+/* ---- Small screens ---- */
+@media (max-width: 640px) {
+  .jpage-head { padding: 22px 16px 16px; }
+  .jsection__head, .jsection__pad, .jsection__note, .jsection__empty { padding-left: 16px; padding-right: 16px; }
+  .jform { padding: 16px; grid-template-columns: minmax(0, 1fr); }
+  .jform--tight { padding: 12px 0 4px; }
+  .reg-row,
+  .register--two .reg-row { grid-template-columns: minmax(0, 1fr); padding: 14px 16px; }
+  .reg-row__side { flex-direction: row; justify-content: space-between; align-items: center; flex-wrap: wrap; }
+  .hub-tab { flex: 1 1 33%; border-bottom: 1px dashed var(--ink); }
+  .hub-row { grid-template-columns: 40px minmax(0, 1fr); padding: 14px 16px; }
+  .hub-row__mono { width: 40px; height: 40px; font-size: 12px; }
+  .hub-row__status { grid-column: 2; }
+  .hub-row__open { display: none; }
+}
+
+/* ---- Attached document (equipment passport, chemical safety data sheet) ---- */
+.doc-cell { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; }
+.doc-cell__error { margin: 0; max-width: 32ch; font-size: 11px; color: var(--crit); text-align: right; }
+@media (max-width: 640px) {
+  .doc-cell { align-items: flex-start; }
+  .doc-cell__error { text-align: left; }
+}

@@ -1,0 +1,6 @@
+/* Inline loading / error line inside a panel. */
+.panel-state { margin: 0; padding: 16px 0; font-size: 11px; color: var(--ink-muted); }
+.panel-state p { margin: 0 0 8px; }
+.panel-state--error { padding: 12px 14px; color: var(--ink); border: 2px dashed var(--crit); }
+.panel-state--error .caps:first-child { font-weight: 700; color: var(--crit); }
+.panel-state__code { font-size: 9px; color: var(--ink-muted); }

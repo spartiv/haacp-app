@@ -1,0 +1,23 @@
+/* "Виконавець" picker: an ink label tab joined to the select, like the date picker. */
+.performer { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: stretch; max-width: 420px; }
+.performer--wide { max-width: none; grid-column: 1 / -1; }
+.performer__label {
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--surface);
+  background: var(--ink);
+}
+.performer__select {
+  min-width: 0;
+  min-height: 44px;
+  padding: 0 10px;
+  font: 700 13px/1 var(--font-mono);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--ink);
+  border-radius: 2px;
+}
+.performer__hint { grid-column: 1 / -1; margin: 6px 0 0; font-size: 10px; color: var(--ink-muted); }

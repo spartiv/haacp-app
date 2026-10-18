@@ -1,0 +1,10 @@
+.status-badge {
+  display: inline-block;
+  padding: 3px 7px;
+  font: 700 11px/1.2 var(--font-mono);
+  letter-spacing: var(--track);
+  white-space: nowrap;
+}
+.status-badge--pending { color: var(--ink-muted); border: 1px dotted var(--ink); }
+.status-badge--pass { color: var(--ok); border: 2px solid var(--ok); }
+.status-badge--deviation { color: var(--crit); border: 2px dashed var(--crit); }

@@ -1,0 +1,10 @@
+.progress-cells { display: flex; gap: 3px; }
+.progress-cell { flex: 1; height: 10px; border: 1px solid var(--ink); }
+.progress-cells--lg { gap: 4px; }
+.progress-cells--lg .progress-cell { height: 22px; }
+.progress-cell--pending { border-style: dotted; }
+.progress-cell--pass { background: var(--ink); }
+.progress-cell--deviation {
+  border-color: var(--crit);
+  background: repeating-linear-gradient(-45deg, var(--crit) 0 1.5px, transparent 1.5px 4px);
+}

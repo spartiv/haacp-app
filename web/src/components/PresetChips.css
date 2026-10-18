@@ -1,0 +1,14 @@
+/* ---- Corrective-action quick chips: dashed = available, solid = already added ---- */
+.preset-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.preset-chip {
+  min-height: 36px;
+  padding: 0 10px;
+  font: 500 11px/1.2 var(--font-mono);
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px dashed var(--ink);
+  cursor: pointer;
+}
+.preset-chip:hover:not(:disabled) { background: var(--bg); border-style: solid; }
+.preset-chip--used,
+.preset-chip:disabled { color: var(--ink-muted); border: 1px solid var(--rule-soft); cursor: default; }
